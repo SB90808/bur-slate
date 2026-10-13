@@ -30,6 +30,8 @@
     --go: #f5f5f7; --on-go: #000000; --danger: #ff453a; --seg-bg: #1c1c1e; --seg-on: #48484a; --seg-on-fg: #f5f5f7;
     --slate-bg: #000000; --slate-fg: #ffffff;
     --u: 1;
+    --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px);
     color-scheme: dark;
   }
   @media (prefers-color-scheme: light) {
@@ -53,15 +55,18 @@
   .editor.settling { pointer-events: none; }
   /* top bar: narrow = mode + theme / the line / the buttons; wide (fit() decides) = all on one row */
   .top { flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: calc(8px * var(--u));
-         grid-template-areas: "seg . theme" "line line line" "acts acts acts";
-         padding-top: max(calc(10px * var(--u)), env(safe-area-inset-top, 0px)); padding-bottom: calc(12px * var(--u));
-         padding-inline: max(calc(16px * var(--u)), env(safe-area-inset-left, 0px)) max(calc(16px * var(--u)), env(safe-area-inset-right, 0px));
+         grid-template-areas: "seg . tools" "line line line" "acts acts acts";
+         padding-top: max(calc(10px * var(--u)), var(--sat)); padding-bottom: calc(12px * var(--u));
+         padding-inline: max(calc(16px * var(--u)), var(--sal)) max(calc(16px * var(--u)), var(--sar));
          border-bottom: 0.5px solid var(--line); }
-  .top.one-row { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "seg line acts theme"; }
-  .top .seg { grid-area: seg; } .top .line { grid-area: line; } .top .acts { grid-area: acts; } .top #theme { grid-area: theme; }
+  /* landscape (Fold / phone on its side, iPad wide): mode, the line and the tools on one row, the buttons across under them */
+  .top.landscape { grid-template-areas: "seg line tools" "acts acts acts"; }
+  .top.landscape .line { height: calc(1.3 * 15px * var(--u) + 18px * var(--u) + 1px); }   /* one row, the same height as the buttons beside it */
+  .top .seg { grid-area: seg; } .top .line { grid-area: line; } .top .acts { grid-area: acts; } .top .tools { grid-area: tools; }
+  .tools { display: flex; gap: calc(8px * var(--u)); justify-self: end; }
   .acts { display: flex; gap: calc(8px * var(--u)); min-width: 0; }
-  .top:not(.one-row) .acts .btn { flex: 1 1 auto; min-width: 0; white-space: normal; line-height: 1.15; padding-inline: calc(8px * var(--u)); }
-  .top:not(.one-row) .acts .btn.go { flex-grow: 2; }
+  .top .acts .btn { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.15; padding-inline: calc(8px * var(--u)); }
+  .top .acts .btn.go { flex-grow: 1.4; }
   .seg { display: inline-flex; gap: calc(2px * var(--u)); padding: calc(2px * var(--u)); background: var(--seg-bg); border-radius: calc(9px * var(--u)); flex: none; }
   .seg button { font: 500 calc(14px * var(--u)) var(--font-ui); padding: calc(7px * var(--u)) calc(16px * var(--u)); border-radius: calc(7px * var(--u));
                 color: var(--muted); background: transparent; border: 0; cursor: pointer; }
@@ -85,15 +90,15 @@
   .field input:focus, .field select:focus { outline: none; border-color: var(--ui-fg); box-shadow: 0 0 0 1px var(--ui-fg); }
 
   .fields { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
-            padding-top: calc(14px * var(--u)); padding-bottom: max(calc(24px * var(--u)), env(safe-area-inset-bottom, 0px));
-            padding-inline: max(calc(16px * var(--u)), env(safe-area-inset-left, 0px)) max(calc(16px * var(--u)), env(safe-area-inset-right, 0px));
+            padding-top: calc(14px * var(--u)); padding-bottom: max(calc(24px * var(--u)), var(--sab));
+            padding-inline: max(calc(16px * var(--u)), var(--sal)) max(calc(16px * var(--u)), var(--sar));
             display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(160px * var(--u))), 1fr));
             gap: calc(12px * var(--u)); align-content: start; }
   .fields.locked { grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); }
-  .fields.measuring { padding-bottom: max(calc(24px * var(--u)), env(safe-area-inset-bottom, 0px)) !important; }
+  .fields.measuring { padding-bottom: max(calc(24px * var(--u)), var(--sab)) !important; }
   .fields.measuring .sugg { display: none !important; }
   .field { display: flex; flex-direction: column; gap: calc(5px * var(--u)); min-width: 0; }
-  .field.wide { grid-column: span var(--wide, 2); }
+  .field.wide { grid-column: 1 / -1; }                 /* specific, location, names: the full width, every layout */
   .pair { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: calc(12px * var(--u)); }
   .pair .both { grid-column: 1 / -1; }
   .field label { font-size: calc(13px * var(--u)); color: var(--muted); padding-left: calc(2px * var(--u));
@@ -120,7 +125,12 @@
   .check input:checked { background: var(--go); border-color: var(--go); }
   .check input:checked::before { opacity: 1; }
   .check label { font-size: calc(15px * var(--u)); color: var(--ui-fg); white-space: normal; padding-left: 0; cursor: pointer; }
-  .note:empty { display: none; }
+  .note:empty, .fields.nonote .note { display: none; }   /* a short screen drops the help line before anything scrolls */
+  .toast { position: absolute; left: 50%; bottom: max(calc(20px * var(--u)), var(--sab)); transform: translateX(-50%); z-index: 5;
+           display: flex; align-items: center; gap: calc(14px * var(--u)); padding: calc(10px * var(--u)) calc(12px * var(--u)) calc(10px * var(--u)) calc(16px * var(--u));
+           background: var(--ui-fg); color: var(--ui-bg); border-radius: calc(12px * var(--u)); font: 500 calc(15px * var(--u)) var(--font-ui); }
+  .toast button { font: 600 calc(15px * var(--u)) var(--font-ui); color: var(--ui-bg); background: transparent; border: 1px solid currentColor;
+                  border-radius: calc(8px * var(--u)); padding: calc(6px * var(--u)) calc(12px * var(--u)); cursor: pointer; }
   .sugg { border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); background: var(--field); max-height: calc(232px * var(--u)); overflow-y: auto; }
   .sugg button { display: block; width: 100%; text-align: left; font: 500 calc(15px * var(--u))/1.3 var(--font-ui); color: var(--ui-fg);
                  background: transparent; border: 0; border-bottom: 0.5px solid var(--line); padding: calc(12px * var(--u)) calc(12px * var(--u)); cursor: pointer; }
@@ -135,7 +145,8 @@
 
   /* ---------- the slate ---------- */
   .stage { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; background: var(--slate-bg);
-           -webkit-user-select: none; user-select: none; }
+           -webkit-user-select: none; user-select: none;
+           padding: var(--sat) var(--sar) var(--sab) var(--sal); }   /* never under the Dynamic Island / notch / home bar */
   .stage.portrait { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
   .stage.solo { grid-template-columns: 1fr; grid-template-rows: 1fr; }
   .half { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -160,10 +171,14 @@
         <button type="button" class="btn" id="bump" hidden>+1 &amp; Show</button>
         <button type="submit" class="btn go" id="show">Show</button>
       </div>
-      <button type="button" class="btn icon" id="theme" aria-label="Switch to light mode" title="Light / dark">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+      <div class="tools">
+        <button type="button" class="btn" id="clear" title="Clear everything typed — takes and positions back to 1">Clear</button>
+        <button type="button" class="btn icon" id="theme" aria-label="Switch to light mode" title="Light / dark">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+      </div>
     </form>
 
+    <div class="toast" id="toast" role="status" hidden><span id="toast-text">Cleared</span><button type="button" id="toast-undo">Undo</button></div>
     <div class="fields" id="fields">
       <!-- SLATE -->
       <div class="pair" data-for="slate">
@@ -212,7 +227,7 @@
           <button type="button" data-step="f-pos" data-d="1" aria-label="Position up">+</button></div></div>
       <div class="field" id="w-npos"><label for="f-npos">Positions in folder</label>
         <select id="f-npos"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
-      <div class="field check" id="w-add"><input autocomplete="off" id="f-add" type="checkbox"><label for="f-add">ADD (more ref, taken later)</label></div>
+      <div class="field check" id="w-add"><label for="f-add">ADD (more ref, taken later)</label><input autocomplete="off" id="f-add" type="checkbox"></div>
       <div class="field" id="w-focal"><label for="f-focal">Focal <span class="opt">(mm)</span></label>
         <input autocomplete="off" id="f-focal" type="text" inputmode="numeric" placeholder="50" enterkeyhint="done"></div>
       <div class="field" id="w-take"><label for="f-take">Take</label>
@@ -414,18 +429,22 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   }
   function renderSlate() {
     if (!shown) return;
-    const st = $("stage"), rect = st.getBoundingClientRect(), solo = shown.textOnly;
-    const portrait = rect.height > rect.width;
+    const st = $("stage"), solo = shown.textOnly, cs = getComputedStyle(st);
+    // the area inside the safe insets (iPhone landscape: the Dynamic Island side is kept clear — text was cut there)
+    const cw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const ch = st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const portrait = ch > cw;
     st.classList.toggle("solo", solo); st.classList.toggle("portrait", portrait && !solo);
     $("qrHalf").hidden = solo;
-    const boxW = solo ? rect.width : portrait ? rect.width : rect.width / 2;
-    const boxH = solo ? rect.height : portrait ? rect.height / 2 : rect.height;
+    const tb = $("slateText").parentElement.getBoundingClientRect();
+    const boxW = tb.width, boxH = tb.height;
     const pad = Math.min(boxW, boxH) * 0.07;
     const best = layout(shown.line, boxW - pad * 2, boxH - pad * 2);
     $("slateText").textContent = best.lines.join("\n");
     $("slateText").style.fontSize = Math.floor(best.size * 0.98) + "px";
     if (!solo) {
-      const side = Math.floor(Math.min(boxW, boxH) * 0.94);
+      const qb = $("qrHalf").getBoundingClientRect();
+      const side = Math.floor(Math.min(qb.width, qb.height) * 0.94);
       try { drawQR(shown.line, side); $("qrBox").style.width = $("qrBox").style.height = side + "px"; }
       catch (e) { $("qrHalf").hidden = true; st.classList.add("solo"); }
     }
@@ -521,8 +540,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   function setU(u) {
     const f = $("fields");
     document.documentElement.style.setProperty("--u", u.toFixed(3));
-    const top = $("top"); top.classList.add("one-row");                 // one row when the line still gets a decent width
-    if ($("preview").clientWidth < 240 * u || top.scrollWidth > top.clientWidth + 1) top.classList.remove("one-row");
+    const top = $("top");
     const cs = getComputedStyle(f), cw = f.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const gap = 12 * u;
     const cols = lockedCols || Math.max(1, Math.floor((cw + gap) / (Math.min(cw, 160 * u) + gap)));
@@ -550,12 +568,25 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   function fit() {
     const f = $("fields");
     if ($("editor").hidden || !f.clientHeight) return;
-    f.classList.add("measuring"); f.classList.remove("locked"); lockedCols = 0;
+    f.classList.add("measuring"); f.classList.remove("locked", "nonote"); lockedCols = 0;
+    const land = $("editor").clientWidth > $("editor").clientHeight;
+    $("top").classList.toggle("landscape", land);
+    // a phone on its side is short: let it go a little smaller before anything scrolls (typed text never under 16px)
+    uMin = land ? 0.75 : U_MIN;
+    const u = sizeTo(f);
+    // the help line goes first: before the form scrolls or drops below its usual size (iPhone / Fold on their side)
+    if ((u < U_MIN || f.scrollHeight > f.clientHeight + 1) && $("note").textContent) { f.classList.add("nonote"); sizeTo(f); }
+    f.classList.remove("measuring");
+    fitLine();
+  }
+  let uMin = U_MIN;
+  function sizeTo(f) {
+    f.classList.remove("locked"); lockedCols = 0;
     // never bigger than the screen's short side allows: a short form (Textures) leaves room below rather than giant text
     // (phone portrait about x1.5, iPad x2.4; 13 Oct 2026: "textures type text is too big in portrait")
     const cap = Math.max(1, Math.min(U_MAX, Math.min(window.innerWidth, window.innerHeight) / 270));
     let u;
-    if (!setU(1)) u = search(U_MIN, 1);
+    if (!setU(1)) u = search(uMin, 1);
     else if (setU(cap)) u = cap;
     else u = search(1, cap);
     setU(u);
@@ -563,10 +594,9 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       const u1 = u;
       lockedCols = getComputedStyle(f).gridTemplateColumns.split(" ").filter(Boolean).length || 1; f.classList.add("locked");
       u = setU(cap) ? cap : search(u1, cap);
-      if (!setU(u)) { lockedCols = 0; f.classList.remove("locked"); setU(u1); }   // never worse than pass 1
+      if (!setU(u)) { lockedCols = 0; f.classList.remove("locked"); setU(u1); u = u1; }   // never worse than pass 1
     }
-    f.classList.remove("measuring");
-    fitLine();
+    return u;
   }
   // with the keyboard up, let the fields scroll so the box being typed in can sit above it
   function keyboard() {
@@ -594,6 +624,35 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     document.documentElement.dataset.theme = t; labelTheme();
     try { localStorage.setItem("bur-slate-theme", t); } catch (e) {}
   });
+
+  // ---------- Clear (13 Oct 2026): a fresh start — every typed box empty, takes / positions back to 1 ----------
+  // The mode and the types picked stay; the names the phone has learned and light / dark stay. Undo for a few seconds.
+  function snapshot() {
+    const s = { mode, add: $("f-add").checked, specs: Object.assign({}, specs), vals: {} };
+    if (specKey) s.specs[specKey] = $("f-spec").value;
+    KEEP.concat(["f-date"]).forEach(id => { s.vals[id] = $(id).value; });
+    return s;
+  }
+  function restore(s) {
+    mode = s.mode;
+    $("f-cat").value = s.vals["f-cat"]; fillAssetTypes();
+    KEEP.concat(["f-date"]).forEach(id => { if (s.vals[id] != null) $(id).value = s.vals[id]; });
+    $("f-add").checked = s.add; specs = s.specs; specKey = null;
+    refreshFields(); save();
+  }
+  let toastTimer = null, undoSnap = null;
+  function clearAll() {
+    undoSnap = snapshot();
+    ["f-slate", "f-slate2", "f-spec", "f-loc", "f-char", "f-name", "f-stunt", "f-focal"].forEach(id => { $(id).value = ""; });
+    ["f-pos", "f-take"].forEach(id => { $(id).value = "1"; });
+    $("f-npos").value = "1"; $("f-add").checked = false; $("f-date").value = today();
+    specs = {};
+    refreshFields(); save();
+    $("toast").hidden = false; clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $("toast").hidden = true; undoSnap = null; }, 6000);
+  }
+  $("clear").addEventListener("click", clearAll);
+  $("toast-undo").addEventListener("click", () => { if (undoSnap) restore(undoSnap); undoSnap = null; $("toast").hidden = true; clearTimeout(toastTimer); });
 
   // ---------- events ----------
   $("top").addEventListener("submit", e => { e.preventDefault(); const b = build(); if (!b.missing) goSlate(b); });
@@ -649,7 +708,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-160328)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-170254)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
