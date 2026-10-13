@@ -65,7 +65,7 @@
   /* landscape (Fold / phone on its side, iPad wide): DO NOT USE, mode, the line and the tools on one row, the buttons across under them */
   .top.landscape { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "dnu seg line tools" "acts acts acts acts"; }
   .top.landscape .line { height: calc(1.3 * 15px * var(--u) + 18px * var(--u) + 1px); }   /* one row, the same height as the buttons beside it */
-  .top .dnu { grid-area: dnu; justify-self: start; padding-inline: calc(9px * var(--u)); }
+  .top .dnu { grid-area: dnu; justify-self: start; padding-inline: calc(7px * var(--u)); }   /* a little tighter, so the toggle keeps its gap without the top shrinking */
   .top .seg { grid-area: seg; justify-self: center; } .top .line { grid-area: line; } .top .acts { grid-area: acts; } .top .tools { grid-area: tools; }
   .tools { display: flex; gap: calc(5px * var(--u)); justify-self: end; }
   .tools .btn { padding-inline: calc(9px * var(--u)); }
@@ -589,7 +589,13 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const edge = top.getBoundingClientRect().right - parseFloat(getComputedStyle(top).paddingRight) + 1;
     const els = [...top.querySelectorAll(".dnu, .seg, .tools, .line, .acts")].filter(x => x.offsetParent), rs = els.map(x => x.getBoundingClientRect());
     if (rs.some(r => r.right > edge)) return false;
-    return !rs.some((a, i) => rs.some((b, k) => k > i && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1));   // nothing on top of anything
+    if (rs.some((a, i) => rs.some((b, k) => k > i && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1))) return false;   // nothing on top of anything
+    // breathing room either side of the toggle: DO NOT USE must not butt against it (the side columns share the width, so a long
+    // left button can run into the centre) — at least the row's gap, else the top goes a touch smaller
+    const tu = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tu")) || 1, need = 5 * tu - 0.5;
+    const seg = top.querySelector(".seg").getBoundingClientRect(), dnu = $("dnu").getBoundingClientRect(), tools = $("clear").parentElement.getBoundingClientRect();
+    const beside = r => Math.abs(r.top - seg.top) < seg.height;   // on the toggle's row
+    return !(beside(dnu) && seg.left - dnu.right < need) && !(beside(tools) && tools.left - seg.right < need);
   }
   const measureSel = document.createElement("canvas").getContext("2d");
   function selectFits(sel) {
@@ -802,7 +808,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-213739)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-214542)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
