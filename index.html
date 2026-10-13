@@ -516,7 +516,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   // ---------- size the form to the screen (any phone or iPad, either way up) ----------
   // every size in the form is a multiple of --u: find the biggest --u at which the fields fit without scrolling
   // pass 1: columns follow the size (160 x u each); pass 2: keep that column count and grow on while columns stay usable (145 x u)
-  const U_MIN = 0.85, U_MAX = 2.8;
+  const U_MIN = 0.85, U_MAX = 2.4;
   let lockedCols = 0;
   function setU(u) {
     const f = $("fields");
@@ -541,7 +541,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   function selectFits(sel) {
     const cs = getComputedStyle(sel), o = sel.options[sel.selectedIndex];
     measureSel.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    return !o || measureSel.measureText(o.text).width <= sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) + 1;
+    return !o || measureSel.measureText(o.text).width * 1.05 + 2 <= sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // with a margin: phones round text wider
   }
   function search(lo, hi) {
     for (let i = 0; i < 10 && hi - lo > 0.01; i++) { const mid = (lo + hi) / 2; if (setU(mid)) lo = mid; else hi = mid; }
@@ -551,15 +551,18 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const f = $("fields");
     if ($("editor").hidden || !f.clientHeight) return;
     f.classList.add("measuring"); f.classList.remove("locked"); lockedCols = 0;
+    // never bigger than the screen's short side allows: a short form (Textures) leaves room below rather than giant text
+    // (phone portrait about x1.5, iPad x2.4; 13 Oct 2026: "textures type text is too big in portrait")
+    const cap = Math.max(1, Math.min(U_MAX, Math.min(window.innerWidth, window.innerHeight) / 270));
     let u;
     if (!setU(1)) u = search(U_MIN, 1);
-    else if (setU(U_MAX)) u = U_MAX;
-    else u = search(1, U_MAX);
+    else if (setU(cap)) u = cap;
+    else u = search(1, cap);
     setU(u);
-    if (u < U_MAX) {                                                     // pass 2
+    if (u < cap) {                                                       // pass 2
       const u1 = u;
       lockedCols = getComputedStyle(f).gridTemplateColumns.split(" ").filter(Boolean).length || 1; f.classList.add("locked");
-      u = setU(U_MAX) ? U_MAX : search(u1, U_MAX);
+      u = setU(cap) ? cap : search(u1, cap);
       if (!setU(u)) { lockedCols = 0; f.classList.remove("locked"); setU(u1); }   // never worse than pass 1
     }
     f.classList.remove("measuring");
@@ -646,7 +649,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-155418)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-160328)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
