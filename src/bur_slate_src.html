@@ -101,6 +101,15 @@
          min-width: 0; width: 100%; height: calc(46px * var(--u)); margin: 0; -webkit-appearance: none; appearance: none; }
   .field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238e8e93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
          background-repeat: no-repeat; background-position: right calc(12px * var(--u)) center; background-size: calc(12px * var(--u)) auto; padding-right: calc(32px * var(--u)); }
+  /* type / category drop-downs: the open list shows the full name (Reference Stills, Photogrammetry, GaussianSplat, Environment…),
+     the closed box keeps the short word (Steve, 13 Oct 2026): the box's own text is hidden and .selface shows the short word over it */
+  .selwrap { position: relative; min-width: 0; width: 100%; }
+  .selwrap select { color: transparent; }
+  .selwrap select option { color: var(--ui-fg); background: var(--field); }
+  .selface { position: absolute; inset: 0; display: flex; align-items: center; pointer-events: none;
+             padding-left: calc(12px * var(--u)); padding-right: calc(32px * var(--u));
+             font: 600 max(16px, calc(17px * var(--u))) var(--font-ui); color: var(--ui-fg);
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .field input[type="text"] { text-transform: uppercase; }
   .field input::placeholder { color: var(--muted); font-weight: 400; text-transform: none; opacity: 1; }
   .step { display: flex; gap: calc(6px * var(--u)); min-width: 0; }
@@ -176,11 +185,11 @@
         <div class="field"><label for="f-slate">Slate</label>
           <input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
         <div class="field"><label for="f-type">Type</label>
-          <select id="f-type">
-            <option value="HDRI">HDRI</option><option value="INSTA">Insta360</option><option value="REF">Ref</option>
-            <option value="VB">VB</option><option value="VB PMP">VB PMP</option><option value="PHOTOG">Photog</option>
-            <option value="TEXTURES">Textures</option><option value="GSPLAT">Gsplat</option><option value="WITNESS">Witness</option>
-          </select></div>
+          <div class="selwrap"><select id="f-type">
+            <option value="HDRI">HDRI</option><option value="INSTA">Insta360</option><option value="REF" data-short="Ref">Reference Stills</option>
+            <option value="VB">VB</option><option value="VB PMP">VB PMP</option><option value="PHOTOG" data-short="Photog">Photogrammetry</option>
+            <option value="TEXTURES">Textures</option><option value="GSPLAT" data-short="Gsplat">GaussianSplat</option><option value="WITNESS">Witness</option>
+          </select><span class="selface" aria-hidden="true"></span></div></div>
         <div class="field both" id="w-slate2"><label for="f-slate2">+ Slates <span class="opt">(shared capture)</span></label>
           <input autocomplete="off" id="f-slate2" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="40A 40B 40C" enterkeyhint="done"></div>
       </div>
@@ -188,9 +197,10 @@
       <!-- ASSET -->
       <div class="pair" data-for="asset">
         <div class="field"><label for="f-cat">Category</label>
-          <select id="f-cat"><option value="ENV">ENV</option><option value="PROP">PROP</option><option value="CHAR">CHAR</option>
-            <option value="VEH">VEH</option><option value="TILES">TILES</option></select></div>
-        <div class="field"><label for="f-atype">Type</label><select id="f-atype"></select></div>
+          <div class="selwrap"><select id="f-cat"><option value="ENV" data-short="ENV">Environment</option><option value="PROP" data-short="PROP">Prop</option>
+            <option value="CHAR" data-short="CHAR">Character</option><option value="VEH" data-short="VEH">Vehicle</option><option value="TILES" data-short="TILES">Tiles</option></select>
+          <span class="selface" aria-hidden="true"></span></div></div>
+        <div class="field"><label for="f-atype">Type</label><div class="selwrap"><select id="f-atype"></select><span class="selface" aria-hidden="true"></span></div></div>
       </div>
       <div class="field wide" data-for="asset" id="w-loc"><label for="f-loc">Location</label>
         <input autocomplete="off" id="f-loc" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"
@@ -247,13 +257,14 @@
   const PROPS = /*PROPS*/;
   const PREFIX = "BUR:";
 
-  // asset type lists per category; witcam types say so
+  // asset type lists per category: [value, short word in the closed box, full name in the open list]; witcam types say so
+  const PHOTOG = ["PHOTOG", "Photog", "Photogrammetry"], TEXTURES = ["TEXTURES", "Textures"], GSPLAT = ["GSPLAT", "Gsplat", "GaussianSplat"];
   const ASSET_TYPES = {
-    ENV:   [["PHOTOG", "Photog"], ["TEXTURES", "Textures"], ["GSPLAT", "Gsplat"], ["PLATE", "Plate (witcam)"]],
-    PROP:  [["PHOTOG", "Photog"], ["TEXTURES", "Textures"]],
-    CHAR:  [["PHOTOG", "Photog"], ["WSCAN", "Wrangler scan"], ["FACIAL", "Facial (witcam)"]],
-    VEH:   [["PHOTOG", "Photog"], ["TEXTURES", "Textures"]],
-    TILES: [["PHOTOG", "Photog"], ["TEXTURES", "Textures"]],
+    ENV:   [PHOTOG, TEXTURES, GSPLAT, ["PLATE", "Plate (witcam)"]],
+    PROP:  [PHOTOG, TEXTURES],
+    CHAR:  [PHOTOG, ["WSCAN", "Wrangler scan"], ["FACIAL", "Facial (witcam)"]],
+    VEH:   [PHOTOG, TEXTURES],
+    TILES: [PHOTOG, TEXTURES],
   };
   const $ = id => document.getElementById(id);
   const words = s => (s || "").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2").toUpperCase();   // MainHallEast -> MAIN HALL EAST
@@ -268,8 +279,13 @@
   // ---------- fill the lists ----------
   function fillAssetTypes() {
     const keep = $("f-atype").value;
-    $("f-atype").innerHTML = ASSET_TYPES[$("f-cat").value].map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+    $("f-atype").innerHTML = ASSET_TYPES[$("f-cat").value].map(([v, t, l]) => `<option value="${v}" data-short="${t}">${l || t}</option>`).join("");
     if ([...$("f-atype").options].some(o => o.value === keep)) $("f-atype").value = keep;
+  }
+  // the closed box shows the short word (Ref, Photog, Gsplat, ENV…); the open list the full name (Steve, 13 Oct 2026)
+  const shortWord = o => o ? (o.dataset.short || o.text) : "";
+  function faceSelects() {
+    document.querySelectorAll(".selwrap").forEach(w => { const s = w.querySelector("select"); w.querySelector(".selface").textContent = shortWord(s.options[s.selectedIndex]); });
   }
 
   // ---------- which fields show ----------
@@ -312,6 +328,7 @@
     show("w-pos", pos); $("l-pos").textContent = posLabel;
     show("w-npos", npos); show("w-add", add); show("w-focal", focal); show("w-take", take);
     $("note").textContent = note;
+    faceSelects();
     build(); fit();
   }
 
@@ -559,7 +576,7 @@
   function selectFits(sel) {
     const cs = getComputedStyle(sel), o = sel.options[sel.selectedIndex];
     measureSel.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    return !o || measureSel.measureText(o.text).width * 1.05 + 2 <= sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // with a margin: phones round text wider
+    return !o || measureSel.measureText(shortWord(o)).width * 1.05 + 2 <= sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // the closed box's word; with a margin: phones round text wider
   }
   function search(lo, hi) {
     for (let i = 0; i < 10 && hi - lo > 0.01; i++) { const mid = (lo + hi) / 2; if (setU(mid)) lo = mid; else hi = mid; }

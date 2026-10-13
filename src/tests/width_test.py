@@ -14,7 +14,9 @@ CHK = """() => { const W = document.documentElement.clientWidth, bad = [];
   document.querySelectorAll('.top .btn').forEach(e => { if (e.offsetParent && e.scrollWidth > e.clientWidth + 1) bad.push(e.id + ' clipped'); });
   const cv = document.createElement('canvas').getContext('2d');
   document.querySelectorAll('.field select').forEach(x => { if (!x.offsetParent) return; const cs = getComputedStyle(x); cv.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
-    if (cv.measureText(x.options[x.selectedIndex].text).width * 1.05 + 2 > x.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) bad.push(x.id + ' word cut'); });
+    const o = x.options[x.selectedIndex], word = o.dataset.short || o.text;   // the closed box shows the short word; the open list the full name
+    if (cv.measureText(word).width * 1.05 + 2 > x.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) bad.push(x.id + ' word cut'); });
+  document.querySelectorAll('.selface').forEach(f => { if (f.offsetParent && f.scrollWidth > f.clientWidth + 1) bad.push('face cut ' + f.textContent); });
   const f = document.getElementById('fields'); if (f.scrollHeight > f.clientHeight + 1) bad.push('scroll ' + (f.scrollHeight - f.clientHeight));
   return bad; }"""
 with sync_playwright() as p:
