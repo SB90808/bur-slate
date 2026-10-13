@@ -21,6 +21,8 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport={"width": 412, "height": 820}, device_scale_factor=2.6, is_mobile=True, has_touch=True, color_scheme="dark")
     pg = ctx.new_page(); errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.goto(F); time.sleep(0.8)
     check("Opens in Slate mode", pg.get_attribute("#mode-slate", "aria-pressed") == "true")
+    check("First install: Ref, empty slate box, no slate example", pg.input_value("#f-type") == "REF" and pg.input_value("#f-slate") == "" and not pg.get_attribute("#f-slate", "placeholder"))
+    check("+ Slates keeps its example", pg.get_attribute("#f-slate2", "placeholder") == "40A 40B 40C")
     check("Phone's own font, Graphite dark colours", "-apple-system" in pg.eval_on_selector("#f-slate", "e => getComputedStyle(e).fontFamily")
           and pg.eval_on_selector("#editor", "e => getComputedStyle(e).backgroundColor") == "rgb(0, 0, 0)"
           and pg.eval_on_selector("#show", "e => getComputedStyle(e).backgroundColor") == "rgb(245, 245, 247)"

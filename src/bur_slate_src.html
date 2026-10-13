@@ -174,7 +174,7 @@
       <!-- SLATE -->
       <div class="pair" data-for="slate">
         <div class="field"><label for="f-slate">Slate</label>
-          <input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="83A" enterkeyhint="done"></div>
+          <input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
         <div class="field"><label for="f-type">Type</label>
           <select id="f-type">
             <option value="HDRI">HDRI</option><option value="INSTA">Insta360</option><option value="REF">Ref</option>
@@ -750,7 +750,7 @@
   }
   function load() {
     let s = null; try { s = JSON.parse(localStorage.getItem("bur-slate-v2") || "null"); } catch (e) {}
-    if (!s) s = { mode: "slate", "f-slate": "83A", "f-type": "REF", "f-pos": "1", "f-take": "1" };   // example to start from
+    if (!s) s = { mode: "slate", "f-type": "REF", "f-pos": "1", "f-take": "1" };   // first install: Slate / Ref, no example slate — only + Slates keeps its example (Steve, 13 Oct 2026); after that the app picks up where it was left
     mode = s.mode === "asset" ? "asset" : "slate";
     $("f-cat").value = s["f-cat"] || "ENV"; fillAssetTypes();
     KEEP.forEach(id => { if (s[id] != null && s[id] !== "") $(id).value = s[id]; });
