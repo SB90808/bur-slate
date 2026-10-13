@@ -23,6 +23,16 @@ with sync_playwright() as p:
     check("Opens in Slate mode", pg.get_attribute("#mode-slate", "aria-pressed") == "true")
     check("First install: Ref, empty slate box, no slate example", pg.input_value("#f-type") == "REF" and pg.input_value("#f-slate") == "" and not pg.get_attribute("#f-slate", "placeholder"))
     check("+ Slates keeps its example", pg.get_attribute("#f-slate2", "placeholder") == "40A 40B 40C")
+    # no POS +1 & Show anywhere: Show fills the row for every type without a take (Steve, 13 Oct evening)
+    setv(pg, "f-slate", "83a"); full = {}
+    for t in ["HDRI", "INSTA", "REF", "VB", "PHOTOG", "GSPLAT"]:
+        pg.select_option("#f-type", t); time.sleep(0.1)
+        if vis(pg, "w-spec"): setv(pg, "f-spec", "x"); time.sleep(0.1)
+        full[t] = pg.evaluate("() => { const b = document.getElementById('bump'), s = document.getElementById('show').getBoundingClientRect(), a = document.getElementById('acts').getBoundingClientRect(); return b.hidden && Math.abs(s.width - a.width) < 2; }")
+        if vis(pg, "w-spec"): setv(pg, "f-spec", "")
+    check("No POS +1; Slate stretches the width (HDRI, Insta360, Ref, VB, Photog, Gsplat)", all(full.values()), full)
+    check("The button says Slate, the witcam +1 says TK +1 & Slate", pg.text_content("#show").strip() == "Slate" and pg.text_content("#bump").strip() == "TK +1 & Slate")
+    pg.select_option("#f-type", "REF"); setv(pg, "f-spec", ""); setv(pg, "f-slate", "")
     setv(pg, "f-slate", "83a"); pg.select_option("#f-type", "REF"); time.sleep(0.1)
     centred = pg.evaluate("() => { const b = document.getElementById('preview').getBoundingClientRect(), t = document.querySelector('#preview .lt').getBoundingClientRect(); return Math.abs((t.left + t.right) / 2 - (b.left + b.right) / 2) < 2 && t.width < b.width - 20; }")
     check("Slate line box: no 'text + QR' tag, text centred", pg.query_selector("#preview .tag") is None and "text + QR" not in pg.text_content("#preview") and centred, pg.text_content("#preview"))

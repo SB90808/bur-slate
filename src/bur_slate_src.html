@@ -43,7 +43,7 @@
   .editor.settling { pointer-events: none; }
   /* top bar: narrow = mode + theme / the line / the buttons; wide (fit() decides) = all on one row */
   /* one row at the top, every type (Steve, 13 Oct 2026): DO NOT USE at the left edge · Slate | Asset centred on the page · Clear · light/dark at the right edge;
-     then the line; then +1 & Show · Show. The two side columns share the width equally, so the toggle sits at the page's centre whatever is beside it. */
+     then the line; then TK +1 & Slate · Slate. The two side columns share the width equally, so the toggle sits at the page's centre whatever is beside it. */
   .top { --u: var(--tu); flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;
          column-gap: calc(8px * var(--u)); row-gap: calc(8px * var(--u));   /* a clear gap between DO NOT USE, the toggle and the tools */
          grid-template-areas: "dnu seg tools" "line line line" "acts acts acts";
@@ -62,7 +62,7 @@
   .tools .btn.icon { padding-inline: calc(6px * var(--u)); }
   .acts { display: flex; gap: calc(8px * var(--u)); min-width: 0; }
   /* the buttons share the row equally (two when there is no +1: centred, half each); labels never wrap, so the row never changes height */
-  .top .acts .btn { flex: 1 1 0; min-width: max-content; white-space: nowrap; padding-inline: calc(10px * var(--u)); }   /* Show alone: the full width */
+  .top .acts .btn { flex: 1 1 0; min-width: max-content; white-space: nowrap; padding-inline: calc(10px * var(--u)); }   /* Slate alone: the full width */
   .seg { display: inline-flex; gap: calc(2px * var(--u)); padding: calc(2px * var(--u)); background: var(--seg-bg); border-radius: calc(9px * var(--u)); flex: none; }
   .seg button { font: 600 calc(13px * var(--u)) var(--font-ui); padding: calc(7px * var(--u)) calc(10px * var(--u)); border-radius: calc(7px * var(--u));
                 color: var(--muted); background: transparent; border: 0; cursor: pointer; }   /* same weight either way, so the toggle never changes width */
@@ -176,8 +176,8 @@
       </div>
       <div class="line" id="preview" aria-live="polite"></div>
       <div class="acts" id="acts">
-        <button type="button" class="btn" id="bump" hidden>+1 &amp; Show</button>
-        <button type="submit" class="btn go" id="show">Show</button>
+        <button type="button" class="btn" id="bump" hidden>TK +1 &amp; Slate</button>
+        <button type="submit" class="btn go" id="show">Slate</button>
       </div>
       <div class="tools">
         <button type="button" class="btn" id="clear" title="Clear everything typed — takes and positions back to 1">Clear</button>
@@ -413,9 +413,9 @@
     else p.append(line);                                                 // just the line — no "text + QR" / "text only" tag (Steve, 13 Oct 2026)
     fitLine();
     $("show").disabled = !!missing;
-    const bumpable = !$("w-take").hidden || !$("w-pos").hidden;
-    $("bump").hidden = !bumpable || !!missing;
-    $("bump").textContent = !$("w-take").hidden ? "TK +1 & Show" : "POS +1 & Show";
+    // only the witcam slates have a +1 (TK +1 & Slate); POS +1 is gone, Slate fills the row; the word is Slate, not Show (Steve, 13 Oct 2026)
+    $("bump").hidden = $("w-take").hidden || !!missing;
+    $("bump").textContent = "TK +1 & Slate";
   }
 
   // ---------- the slate screen ----------
@@ -633,7 +633,7 @@
   let uMin = U_MIN;
   // ---------- the top section: one size per screen and way up, whatever the type (Steve, 13 Oct 2026) ----------
   // "The ideal size in portrait is for WITNESS": the size Witness's own form would give it, then made to fit with the longest
-  // button label showing (POS +1 & Show). On its side the top keeps to a quarter of the screen so the longest forms still fit.
+  // button label showing (TK +1 & Slate). On its side the top keeps to a quarter of the screen so the longest forms still fit.
   let topKey = "", tuNow = 1;
   const WITNESS_NOTE = "The camera is the folder the clip is sorted into — no camera on the board.";
   function witnessU(f) {
@@ -642,7 +642,7 @@
     f.querySelectorAll("[data-for]").forEach(e => { e.hidden = e.dataset.for !== "slate"; });
     ["w-slate2", "w-spec", "w-pos", "w-npos", "w-add"].forEach(id => { $(id).hidden = true; });
     $("w-fd").hidden = false; $("w-focal").hidden = false; $("w-date").hidden = false; $("w-take").hidden = false;
-    type.value = "WITNESS"; note.textContent = WITNESS_NOTE; bump.hidden = false; bump.textContent = "TK +1 & Show";
+    type.value = "WITNESS"; note.textContent = WITNESS_NOTE; bump.hidden = false; bump.textContent = "TK +1 & Slate";
     probing = true; let u;
     try { u = sizeTo(f); } finally {
       probing = false;
@@ -652,7 +652,7 @@
   }
   function topSize(f, land) {
     const uw = witnessU(f), bump = $("bump"), old = [bump.hidden, bump.textContent], ed = $("editor");
-    bump.hidden = false; bump.textContent = "POS +1 & Show";
+    bump.hidden = false; bump.textContent = "TK +1 & Slate";
     const ok = x => { setTU(x); return topFits() && (!land || $("top").offsetHeight <= ed.clientHeight * 0.25); };
     let tu = uw;
     if (!ok(tu)) { let lo = 0.6, hi = uw; for (let i = 0; i < 12 && hi - lo > 0.005; i++) { const mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; } tu = lo; }
@@ -745,7 +745,7 @@
     const id = b.dataset.step; $(id).value = Math.max(1, num(id) + (+b.dataset.d)); build();
   }));
   $("bump").addEventListener("click", () => {
-    const id = !$("w-take").hidden ? "f-take" : "f-pos"; $(id).value = num(id) + 1;
+    $("f-take").value = num("f-take") + 1;
     const b = build(); if (!b.missing) goSlate(b);
   });
   $("dnu").addEventListener("click", () => goSlate({ line: "DO NOT USE", textOnly: true, missing: "" }));
