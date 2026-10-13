@@ -13,7 +13,7 @@ iPhone and Android, portrait or landscape, works with no signal once opened.
 | Thing | Where |
 |---|---|
 | Steve's own copy (production lists built in) | a Claude artifact "BUR Slate" (private; the link is in the Claude project doc) |
-| Wranglers' copy (no production lists) | https://sb90808.github.io/bur-slate/ — GitHub repo **SB90808/bur-slate**, Pages from `main` / root. Claude GitHub App is installed on this repo only (`add_repo` SB90808/bur-slate in a session, then clone, commit as Steven Barham <stebar.vfx@gmail.com>, push). The Pages API is blocked through the session proxy; pushing to main redeploys by itself (check `gh api repos/SB90808/bur-slate/actions/runs`) |
+| Wranglers' copy (no production lists) | https://sb90808.github.io/bur-slate/ — GitHub repo **SB90808/bur-slate**, Pages from `main` / root. Claude GitHub App is installed on this repo only (`add_repo` SB90808/bur-slate in a session, then clone, commit as Steven Barham, push). The Pages API is blocked through the session proxy; pushing to main redeploys by itself (check `gh api repos/SB90808/bur-slate/actions/runs`) |
 | Source | `src/bur_slate_src.html` in the repo — ONE source with placeholders `/*QRLIB*/ /*LOCATIONS*/ /*CHARACTERS*/ /*PROPS*/` |
 | Build | `src/build_slate.py` — web copy into the repo root (index.html, manifest.webmanifest, sw.js; icons kept as committed) and, given the kit's `config/asset_history.json` (`--lists`), the artifact copy (`--artifact <path>`, never commit it) |
 | QR library | `src/qrcode.min.js` = qrcode-generator 1.4.4 (Kazuhiko Arase, MIT), inlined at build |
