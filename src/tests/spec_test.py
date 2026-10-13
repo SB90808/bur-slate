@@ -26,6 +26,12 @@ with sync_playwright() as p:
     setv(pg, "f-slate", "83a"); pg.select_option("#f-type", "REF"); time.sleep(0.1)
     centred = pg.evaluate("() => { const b = document.getElementById('preview').getBoundingClientRect(), t = document.querySelector('#preview .lt').getBoundingClientRect(); return Math.abs((t.left + t.right) / 2 - (b.left + b.right) / 2) < 2 && t.width < b.width - 20; }")
     check("Slate line box: no 'text + QR' tag, text centred", pg.query_selector("#preview .tag") is None and "text + QR" not in pg.text_content("#preview") and centred, pg.text_content("#preview"))
+    top = pg.evaluate("""() => { const t = document.getElementById('top'), cs = getComputedStyle(t), r = t.getBoundingClientRect();
+      const d = document.getElementById('dnu').getBoundingClientRect(), s = t.querySelector('.seg').getBoundingClientRect(), th = document.getElementById('theme').getBoundingClientRect(), c = document.getElementById('clear').getBoundingClientRect();
+      const W = document.documentElement.clientWidth;
+      return { dnuLeft: Math.abs(d.left - (r.left + parseFloat(cs.paddingLeft))) < 1, segCentred: Math.abs((s.left + s.right) / 2 - W / 2) < 1.5,
+               rightEdge: Math.abs(th.right - (r.right - parseFloat(cs.paddingRight))) < 1 && c.right < th.left && c.top === th.top, sameRow: Math.abs((d.top + d.bottom) - (s.top + s.bottom)) < 4 && Math.abs((s.top + s.bottom) - (th.top + th.bottom)) < 4 }; }""")
+    check("Top row: DO NOT USE at the left edge, Slate | Asset centred on the page, Clear + light/dark at the right edge", all(top.values()), top)
     check("Phone's own font, Graphite dark colours", "-apple-system" in pg.eval_on_selector("#f-slate", "e => getComputedStyle(e).fontFamily")
           and pg.eval_on_selector("#editor", "e => getComputedStyle(e).backgroundColor") == "rgb(0, 0, 0)"
           and pg.eval_on_selector("#show", "e => getComputedStyle(e).backgroundColor") == "rgb(245, 245, 247)"

@@ -54,19 +54,22 @@
   .editor { position: absolute; inset: 0; background: var(--ui-bg); color: var(--ui-fg); display: flex; flex-direction: column; }
   .editor.settling { pointer-events: none; }
   /* top bar: narrow = mode + theme / the line / the buttons; wide (fit() decides) = all on one row */
-  /* one row at the top, every type (13 Oct 2026): Slate | Asset … DO NOT USE · Clear · light/dark; then the line; then +1 & Show · Show */
-  .top { --u: var(--tu); flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center;
+  /* one row at the top, every type (13 Oct 2026): DO NOT USE at the left edge · Slate | Asset centred on the page · Clear · light/dark at the right edge;
+     then the line; then +1 & Show · Show. The two side columns share the width equally, so the toggle sits at the page's centre whatever is beside it. */
+  .top { --u: var(--tu); flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;
          column-gap: calc(5px * var(--u)); row-gap: calc(8px * var(--u));
-         grid-template-areas: "seg . tools theme" "line line line line" "acts acts acts acts";
+         grid-template-areas: "dnu seg tools" "line line line" "acts acts acts";
          padding-top: max(calc(10px * var(--u)), var(--sat)); padding-bottom: calc(12px * var(--u));
          padding-inline: max(calc(14px * var(--u)), var(--sal)) max(calc(14px * var(--u)), var(--sar));
          border-bottom: 0.5px solid var(--line); }
-  /* landscape (Fold / phone on its side, iPad wide): mode, the line and the tools on one row, the buttons across under them */
-  .top.landscape { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "seg line tools theme" "acts acts acts acts"; }
+  /* landscape (Fold / phone on its side, iPad wide): DO NOT USE, mode, the line and the tools on one row, the buttons across under them */
+  .top.landscape { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "dnu seg line tools" "acts acts acts acts"; }
   .top.landscape .line { height: calc(1.3 * 15px * var(--u) + 18px * var(--u) + 1px); }   /* one row, the same height as the buttons beside it */
-  .top .seg { grid-area: seg; } .top .line { grid-area: line; } .top .acts { grid-area: acts; } .top .tools { grid-area: tools; } .top #theme { grid-area: theme; }
+  .top .dnu { grid-area: dnu; justify-self: start; padding-inline: calc(9px * var(--u)); }
+  .top .seg { grid-area: seg; justify-self: center; } .top .line { grid-area: line; } .top .acts { grid-area: acts; } .top .tools { grid-area: tools; }
   .tools { display: flex; gap: calc(5px * var(--u)); justify-self: end; }
   .tools .btn { padding-inline: calc(9px * var(--u)); }
+  .tools .btn.icon { padding-inline: calc(6px * var(--u)); }
   .acts { display: flex; gap: calc(8px * var(--u)); min-width: 0; }
   /* the buttons share the row equally (two when there is no +1: centred, half each); labels never wrap, so the row never changes height */
   .top .acts .btn { flex: 1 1 0; min-width: max-content; white-space: nowrap; padding-inline: calc(10px * var(--u)); }   /* Show alone: the full width */
@@ -174,6 +177,7 @@
 <div class="app">
   <section class="editor" id="editor" aria-label="Slate form">
     <form class="top" id="top" autocomplete="off">
+      <button type="button" class="btn dnu" id="dnu">DO NOT USE</button>
       <div class="seg" role="group" aria-label="Slate or asset">
         <button type="button" id="mode-slate" aria-pressed="true" data-label="Slate">Slate</button>
         <button type="button" id="mode-asset" aria-pressed="false" data-label="Asset">Asset</button>
@@ -184,11 +188,10 @@
         <button type="submit" class="btn go" id="show">Show</button>
       </div>
       <div class="tools">
-        <button type="button" class="btn dnu" id="dnu">DO NOT USE</button>
         <button type="button" class="btn" id="clear" title="Clear everything typed — takes and positions back to 1">Clear</button>
-      </div>
-      <button type="button" class="btn icon" id="theme" aria-label="Switch to light mode" title="Light / dark">
+        <button type="button" class="btn icon" id="theme" aria-label="Switch to light mode" title="Light / dark">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+      </div>
     </form>
 
     <div class="toast" id="toast" role="status" hidden><span id="toast-text">Cleared</span><button type="button" id="toast-undo">Undo</button></div>
@@ -584,7 +587,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const top = $("top"), acts = $("acts");
     if (acts.scrollWidth > acts.clientWidth + 1 || [...acts.children].some(x => !x.hidden && x.scrollWidth > x.clientWidth + 1)) return false;
     const edge = top.getBoundingClientRect().right - parseFloat(getComputedStyle(top).paddingRight) + 1;
-    const els = [...top.querySelectorAll(".seg, .tools, #theme, .line, .acts")].filter(x => x.offsetParent), rs = els.map(x => x.getBoundingClientRect());
+    const els = [...top.querySelectorAll(".dnu, .seg, .tools, .line, .acts")].filter(x => x.offsetParent), rs = els.map(x => x.getBoundingClientRect());
     if (rs.some(r => r.right > edge)) return false;
     return !rs.some((a, i) => rs.some((b, k) => k > i && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1));   // nothing on top of anything
   }
@@ -799,7 +802,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-212801)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-213739)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
