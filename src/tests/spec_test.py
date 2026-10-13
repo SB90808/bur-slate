@@ -23,6 +23,9 @@ with sync_playwright() as p:
     check("Opens in Slate mode", pg.get_attribute("#mode-slate", "aria-pressed") == "true")
     check("First install: Ref, empty slate box, no slate example", pg.input_value("#f-type") == "REF" and pg.input_value("#f-slate") == "" and not pg.get_attribute("#f-slate", "placeholder"))
     check("+ Slates keeps its example", pg.get_attribute("#f-slate2", "placeholder") == "40A 40B 40C")
+    setv(pg, "f-slate", "83a"); pg.select_option("#f-type", "REF"); time.sleep(0.1)
+    centred = pg.evaluate("() => { const b = document.getElementById('preview').getBoundingClientRect(), t = document.querySelector('#preview .lt').getBoundingClientRect(); return Math.abs((t.left + t.right) / 2 - (b.left + b.right) / 2) < 2 && t.width < b.width - 20; }")
+    check("Slate line box: no 'text + QR' tag, text centred", pg.query_selector("#preview .tag") is None and "text + QR" not in pg.text_content("#preview") and centred, pg.text_content("#preview"))
     check("Phone's own font, Graphite dark colours", "-apple-system" in pg.eval_on_selector("#f-slate", "e => getComputedStyle(e).fontFamily")
           and pg.eval_on_selector("#editor", "e => getComputedStyle(e).backgroundColor") == "rgb(0, 0, 0)"
           and pg.eval_on_selector("#show", "e => getComputedStyle(e).backgroundColor") == "rgb(245, 245, 247)"
