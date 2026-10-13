@@ -1,0 +1,766 @@
+<title>BUR Slate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<style>
+  /* Layout: two screens. The form (Slate | Asset, then the fields for the chosen type) builds the slate line;
+     Show swaps to the slate: text left / QR right (text only for HDRI and Insta360). Double-tap the QR to edit.
+     Every form size is a multiple of --u, which fit() sets so the fields fill the screen of whatever phone or iPad it is on.
+     Colours: Graphite (Steve, 13 Oct 2026) — Apple's neutral greys, no accent colour, red only for DO NOT USE.
+     The slate follows the theme: white on black (dark), black on white (light). */
+  :root {
+    --qr-paper: #ffffff;          /* QR square: black modules on white reads most reliably */
+    --qr-ink: #000000;
+    --font-slate: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;   /* plain bold sans, like BIG */
+    --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", system-ui, sans-serif;
+    --ui-bg: #000000; --ui-fg: #f5f5f7; --field: #1c1c1e; --line: #38383a; --muted: #98989f;
+    --go: #f5f5f7; --on-go: #000000; --danger: #ff453a; --seg-bg: #1c1c1e; --seg-on: #48484a; --seg-on-fg: #f5f5f7;
+    --slate-bg: #000000; --slate-fg: #ffffff;
+    --u: 1; --tu: 1;                 /* --u sizes the fields; --tu the top section (one size per screen, Witness's) */
+    --sat: env(safe-area-inset-top, 0px); --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px); --sal: env(safe-area-inset-left, 0px);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { --ui-bg: #f5f5f7; --ui-fg: #1d1d1f; --field: #ffffff; --line: #d2d2d7; --muted: #6e6e73;
+    --go: #1d1d1f; --on-go: #ffffff; --danger: #d70015; --seg-bg: #e8e8ed; --seg-on: #ffffff; --seg-on-fg: #1d1d1f;
+    --slate-bg: #ffffff; --slate-fg: #000000; color-scheme: light; }
+  }
+  :root[data-theme="light"] { --ui-bg: #f5f5f7; --ui-fg: #1d1d1f; --field: #ffffff; --line: #d2d2d7; --muted: #6e6e73;
+    --go: #1d1d1f; --on-go: #ffffff; --danger: #d70015; --seg-bg: #e8e8ed; --seg-on: #ffffff; --seg-on-fg: #1d1d1f;
+    --slate-bg: #ffffff; --slate-fg: #000000; color-scheme: light; }
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--slate-bg); color: var(--slate-fg); overflow: hidden; touch-action: manipulation;
+         -webkit-tap-highlight-color: transparent; font-family: var(--font-ui); -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+         -webkit-font-smoothing: antialiased; }
+  .app { position: relative; height: 100%; }
+
+  /* ---------- the form ---------- */
+  .editor { position: absolute; inset: 0; background: var(--ui-bg); color: var(--ui-fg); display: flex; flex-direction: column; }
+  .editor.settling { pointer-events: none; }
+  /* top bar: narrow = mode + theme / the line / the buttons; wide (fit() decides) = all on one row */
+  /* one row at the top, every type (Steve, 13 Oct 2026): Slate | Asset … DO NOT USE · Clear · light/dark; then the line; then +1 & Show · Show */
+  .top { --u: var(--tu); flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center;
+         column-gap: calc(5px * var(--u)); row-gap: calc(8px * var(--u));
+         grid-template-areas: "seg . tools theme" "line line line line" "acts acts acts acts";
+         padding-top: max(calc(10px * var(--u)), var(--sat)); padding-bottom: calc(12px * var(--u));
+         padding-inline: max(calc(14px * var(--u)), var(--sal)) max(calc(14px * var(--u)), var(--sar));
+         border-bottom: 0.5px solid var(--line); }
+  /* landscape (Fold / phone on its side, iPad wide): mode, the line and the tools on one row, the buttons across under them */
+  .top.landscape { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: "seg line tools theme" "acts acts acts acts"; }
+  .top.landscape .line { height: calc(1.3 * 15px * var(--u) + 18px * var(--u) + 1px); }   /* one row, the same height as the buttons beside it */
+  .top .seg { grid-area: seg; } .top .line { grid-area: line; } .top .acts { grid-area: acts; } .top .tools { grid-area: tools; } .top #theme { grid-area: theme; }
+  .tools { display: flex; gap: calc(5px * var(--u)); justify-self: end; }
+  .tools .btn { padding-inline: calc(9px * var(--u)); }
+  .acts { display: flex; gap: calc(8px * var(--u)); min-width: 0; }
+  /* the buttons share the row equally (two when there is no +1: centred, half each); labels never wrap, so the row never changes height */
+  .top .acts .btn { flex: 1 1 0; min-width: max-content; white-space: nowrap; padding-inline: calc(10px * var(--u)); }   /* Show alone: the full width */
+  .seg { display: inline-flex; gap: calc(2px * var(--u)); padding: calc(2px * var(--u)); background: var(--seg-bg); border-radius: calc(9px * var(--u)); flex: none; }
+  .seg button { font: 500 calc(14px * var(--u)) var(--font-ui); padding: calc(7px * var(--u)) calc(10px * var(--u)); border-radius: calc(7px * var(--u));
+                color: var(--muted); background: transparent; border: 0; cursor: pointer; }
+  .seg button { display: inline-flex; flex-direction: column; align-items: center; }
+  .seg button::after { content: attr(data-label); font-weight: 600; height: 0; overflow: hidden; visibility: hidden; }   /* room for the bold label */
+  .seg button[aria-pressed="true"] { background: var(--seg-on); color: var(--seg-on-fg); font-weight: 600; }
+  .line { min-width: 0; white-space: normal; overflow-wrap: anywhere; overflow: hidden;
+          height: calc(2 * 1.3 * 15px * var(--u) + 18px * var(--u) + 1px); font: 600 calc(15px * var(--u))/1.3 var(--font-ui); color: var(--ui-fg); background: var(--field);
+          border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); padding: calc(9px * var(--u)) calc(12px * var(--u)); }
+  .top .line { display: flex; align-items: center; }
+  .line .lt { min-width: 0; }
+  .line .why { color: var(--muted); font-weight: 400; }
+  .line .tag { color: var(--muted); font-weight: 400; margin-left: calc(8px * var(--u)); }
+  .btn { font: 600 calc(14px * var(--u)) var(--font-ui); border-radius: calc(10px * var(--u)); padding: calc(10px * var(--u)) calc(14px * var(--u));
+         border: 0.5px solid var(--line); background: var(--field); color: var(--ui-fg); cursor: pointer; white-space: nowrap; flex: none; }
+  .btn.go { background: var(--go); border-color: var(--go); color: var(--on-go); }
+  .btn.dnu { color: var(--danger); }
+  .btn.icon { display: inline-flex; align-items: center; justify-content: center; padding: calc(9px * var(--u)) calc(6px * var(--u)); color: var(--muted); }
+  .btn.icon svg { width: calc(18px * var(--u)); height: calc(18px * var(--u)); display: block; }
+  .btn:disabled { opacity: 0.35; cursor: default; }
+  .btn:active:not(:disabled), .step button:active, .seg button:active { opacity: 0.7; }
+  .btn:focus-visible, .seg button:focus-visible, .step button:focus-visible { outline: 2px solid var(--ui-fg); outline-offset: 2px; }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--ui-fg); box-shadow: 0 0 0 1px var(--ui-fg); }
+
+  .fields { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding-top: calc(14px * var(--u)); padding-bottom: max(calc(24px * var(--u)), var(--sab));
+            padding-inline: max(calc(14px * var(--tu)), var(--sal)) max(calc(14px * var(--tu)), var(--sar));   /* lines up with the top */
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(160px * var(--u))), 1fr));
+            gap: calc(12px * var(--u)); align-content: start; }
+  .fields.locked { grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); }
+  .fields.measuring { padding-bottom: max(calc(24px * var(--u)), var(--sab)) !important; }
+  .fields.measuring .sugg { display: none !important; }
+  .field { display: flex; flex-direction: column; gap: calc(5px * var(--u)); min-width: 0; }
+  .field.wide { grid-column: 1 / -1; }                 /* specific, location, names: the full width, every layout */
+  .pair { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: calc(12px * var(--u)); }
+  .pair .both { grid-column: 1 / -1; }
+  .field label { font-size: calc(13px * var(--u)); color: var(--muted); padding-left: calc(2px * var(--u));
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .field input, .field select { font: 600 max(16px, calc(17px * var(--u))) var(--font-ui); text-overflow: ellipsis; color: var(--ui-fg); background: var(--field);
+         border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); padding: calc(10px * var(--u)) calc(12px * var(--u));
+         min-width: 0; width: 100%; height: calc(46px * var(--u)); margin: 0; -webkit-appearance: none; appearance: none; }
+  .field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238e8e93' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+         background-repeat: no-repeat; background-position: right calc(12px * var(--u)) center; background-size: calc(12px * var(--u)) auto; padding-right: calc(32px * var(--u)); }
+  .field input[type="text"] { text-transform: uppercase; }
+  .field input::placeholder { color: var(--muted); font-weight: 400; text-transform: none; opacity: 1; }
+  .step { display: flex; gap: calc(6px * var(--u)); min-width: 0; }
+  .step input { flex: 1 1 0; width: auto; text-align: center; font-variant-numeric: tabular-nums; }
+  .step button { flex: none; width: calc(46px * var(--u)); font: 400 calc(22px * var(--u)) var(--font-ui); color: var(--ui-fg); background: var(--field);
+                 border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); cursor: pointer; }
+  /* ADD tick box: the same size as the + / − buttons, so it is easy to hit */
+  .check { flex-direction: row; align-items: center; gap: calc(12px * var(--u)); align-self: end; }
+  .check input { flex: none; width: calc(46px * var(--u)); height: calc(46px * var(--u)); padding: 0; cursor: pointer;
+                 -webkit-appearance: none; appearance: none; display: grid; place-content: center;
+                 border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); background: var(--field); }
+  .check input::before { content: ""; width: calc(16px * var(--u)); height: calc(8px * var(--u)); margin-top: calc(-4px * var(--u));
+                         border-left: calc(3px * var(--u)) solid var(--on-go); border-bottom: calc(3px * var(--u)) solid var(--on-go);
+                         transform: rotate(-45deg); opacity: 0; }
+  .check input:checked { background: var(--go); border-color: var(--go); }
+  .check input:checked::before { opacity: 1; }
+  .check label { font-size: calc(15px * var(--u)); color: var(--ui-fg); white-space: normal; padding-left: 0; cursor: pointer; }
+  .note:empty, .fields.nonote .note { display: none; }   /* a short screen drops the help line before anything scrolls */
+  .toast { --u: var(--tu); position: absolute; left: 50%; bottom: max(calc(20px * var(--u)), var(--sab)); transform: translateX(-50%); z-index: 5;
+           display: flex; align-items: center; gap: calc(14px * var(--u)); padding: calc(10px * var(--u)) calc(12px * var(--u)) calc(10px * var(--u)) calc(16px * var(--u));
+           background: var(--ui-fg); color: var(--ui-bg); border-radius: calc(12px * var(--u)); font: 500 calc(15px * var(--u)) var(--font-ui); }
+  .toast button { font: 600 calc(15px * var(--u)) var(--font-ui); color: var(--ui-bg); background: transparent; border: 1px solid currentColor;
+                  border-radius: calc(8px * var(--u)); padding: calc(6px * var(--u)) calc(12px * var(--u)); cursor: pointer; }
+  .sugg { border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); background: var(--field); max-height: calc(232px * var(--u)); overflow-y: auto; }
+  .sugg button { display: block; width: 100%; text-align: left; font: 500 calc(15px * var(--u))/1.3 var(--font-ui); color: var(--ui-fg);
+                 background: transparent; border: 0; border-bottom: 0.5px solid var(--line); padding: calc(12px * var(--u)) calc(12px * var(--u)); cursor: pointer; }
+  .sugg > :last-child, .sugg > .row:last-child > button { border-bottom: 0; }
+  .sugg .row { display: flex; }
+  .sugg .row .pick { flex: 1 1 auto; min-width: 0; }
+  .sugg .forget { flex: none; width: calc(48px * var(--u)) !important; text-align: center !important; color: var(--muted) !important;
+                  font-size: calc(22px * var(--u)) !important; font-weight: 400 !important; }
+  .sugg button:active { background: var(--line); }
+  .sugg .hint { font-size: calc(13px * var(--u)); color: var(--muted); padding: calc(10px * var(--u)) calc(12px * var(--u)); border-bottom: 0.5px solid var(--line); }
+  .note { grid-column: 1 / -1; margin: 0; font-size: calc(13px * var(--u)); line-height: 1.45; color: var(--muted); }
+
+  /* ---------- the slate ---------- */
+  .stage { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; background: var(--slate-bg);
+           -webkit-user-select: none; user-select: none; touch-action: none;   /* swipes and taps are the page's own, never a scroll or zoom */
+           padding: var(--sat) var(--sar) var(--sab) var(--sal); }   /* never under the Dynamic Island / notch / home bar */
+  .stage.portrait { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .stage.solo { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .half { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .text { font-family: var(--font-slate); font-weight: 700; color: var(--slate-fg); text-align: center; line-height: 1.12;
+          white-space: pre; letter-spacing: -0.005em; }
+  .qrbox { background: var(--qr-paper); display: flex; align-items: center; justify-content: center; }
+  .qrbox canvas { display: block; image-rendering: pixelated; }
+</style>
+
+<div class="app">
+  <section class="editor" id="editor" aria-label="Slate form">
+    <form class="top" id="top" autocomplete="off">
+      <div class="seg" role="group" aria-label="Slate or asset">
+        <button type="button" id="mode-slate" aria-pressed="true" data-label="Slate">Slate</button>
+        <button type="button" id="mode-asset" aria-pressed="false" data-label="Asset">Asset</button>
+      </div>
+      <div class="line" id="preview" aria-live="polite"></div>
+      <div class="acts" id="acts">
+        <button type="button" class="btn" id="bump" hidden>+1 &amp; Show</button>
+        <button type="submit" class="btn go" id="show">Show</button>
+      </div>
+      <div class="tools">
+        <button type="button" class="btn dnu" id="dnu">DO NOT USE</button>
+        <button type="button" class="btn" id="clear" title="Clear everything typed — takes and positions back to 1">Clear</button>
+      </div>
+      <button type="button" class="btn icon" id="theme" aria-label="Switch to light mode" title="Light / dark">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></button>
+    </form>
+
+    <div class="toast" id="toast" role="status" hidden><span id="toast-text">Cleared</span><button type="button" id="toast-undo">Undo</button></div>
+    <div class="fields" id="fields">
+      <!-- SLATE -->
+      <div class="pair" data-for="slate">
+        <div class="field"><label for="f-slate">Slate</label>
+          <input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="83A" enterkeyhint="done"></div>
+        <div class="field"><label for="f-type">Type</label>
+          <select id="f-type">
+            <option value="HDRI">HDRI</option><option value="INSTA">Insta360</option><option value="REF">Ref</option>
+            <option value="VB">VB</option><option value="VB PMP">VB PMP</option><option value="PHOTOG">Photog</option>
+            <option value="TEXTURES">Textures</option><option value="GSPLAT">Gsplat</option><option value="WITNESS">Witness</option>
+          </select></div>
+        <div class="field both" id="w-slate2"><label for="f-slate2">+ Slates <span class="opt">(shared capture)</span></label>
+          <input autocomplete="off" id="f-slate2" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="40A 40B 40C" enterkeyhint="done"></div>
+      </div>
+
+      <!-- ASSET -->
+      <div class="pair" data-for="asset">
+        <div class="field"><label for="f-cat">Category</label>
+          <select id="f-cat"><option value="ENV">ENV</option><option value="PROP">PROP</option><option value="CHAR">CHAR</option>
+            <option value="VEH">VEH</option><option value="TILES">TILES</option></select></div>
+        <div class="field"><label for="f-atype">Type</label><select id="f-atype"></select></div>
+      </div>
+      <div class="field wide" data-for="asset" id="w-loc"><label for="f-loc">Location</label>
+        <input autocomplete="off" id="f-loc" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"
+               placeholder="pick or type" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="loc-sugg">
+        <div class="sugg" id="loc-sugg" role="listbox" aria-label="Production locations" hidden></div></div>
+      <div class="field wide" data-for="asset" id="w-char"><label for="f-char">Character</label>
+        <input autocomplete="off" id="f-char" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"
+               placeholder="pick or type" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="char-sugg">
+        <div class="sugg" id="char-sugg" role="listbox" aria-label="Characters" hidden></div></div>
+      <div class="field wide" data-for="asset" id="w-name"><label for="f-name" id="l-name">Name</label>
+        <input autocomplete="off" id="f-name" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"
+               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="name-sugg">
+        <div class="sugg" id="name-sugg" role="listbox" aria-label="Known props" hidden></div></div>
+      <div class="field wide" data-for="asset" id="w-stunt"><label for="f-stunt">Real name</label>
+        <input autocomplete="off" id="f-stunt" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="JOHN SMITH" enterkeyhint="done"></div>
+      <div class="field" data-for="asset" id="w-date"><label for="f-date">Date <span class="opt">(yymmdd)</span></label>
+        <input autocomplete="off" id="f-date" type="text" inputmode="numeric" maxlength="6" placeholder="261013" enterkeyhint="done"></div>
+
+      <!-- shared by both -->
+      <div class="field wide" id="w-spec"><label for="f-spec" id="l-spec">Specific</label>
+        <input autocomplete="off" id="f-spec" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
+      <div class="field" id="w-pos"><label for="f-pos" id="l-pos">Pos</label>
+        <div class="step"><button type="button" data-step="f-pos" data-d="-1" aria-label="Position down">−</button>
+          <input autocomplete="off" id="f-pos" type="text" inputmode="numeric" value="1" enterkeyhint="done">
+          <button type="button" data-step="f-pos" data-d="1" aria-label="Position up">+</button></div></div>
+      <div class="field" id="w-npos"><label for="f-npos">Positions in folder</label>
+        <select id="f-npos"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+      <div class="field check" id="w-add"><label for="f-add">ADD (more ref, taken later)</label><input autocomplete="off" id="f-add" type="checkbox"></div>
+      <div class="field" id="w-focal"><label for="f-focal">Focal <span class="opt">(mm)</span></label>
+        <input autocomplete="off" id="f-focal" type="text" inputmode="numeric" placeholder="50" enterkeyhint="done"></div>
+      <div class="field" id="w-take"><label for="f-take">Take</label>
+        <div class="step"><button type="button" data-step="f-take" data-d="-1" aria-label="Take down">−</button>
+          <input autocomplete="off" id="f-take" type="text" inputmode="numeric" value="1" enterkeyhint="done">
+          <button type="button" data-step="f-take" data-d="1" aria-label="Take up">+</button></div></div>
+      <p class="note" id="note"></p>
+    </div>
+  </section>
+
+  <section class="stage" id="stage" hidden aria-label="Slate">
+    <div class="half"><div class="text" id="slateText"></div></div>
+    <div class="half" id="qrHalf"><div class="qrbox" id="qrBox"><canvas id="qr" aria-label="QR code of the slate line"></canvas></div></div>
+  </section>
+</div>
+
+<script>
+// qrcode-generator 1.4.4 (Kazuhiko Arase, MIT), built into the page so the slate works with no signal on set
+/*QRLIB*/
+</script>
+<script>
+(() => {
+  // ---- production lists: filled in at build time from the kit's asset_history.json (empty on the web version) ----
+  const LOCATIONS = /*LOCATIONS*/;
+  const CHARACTERS = /*CHARACTERS*/;
+  const PROPS = /*PROPS*/;
+  const PREFIX = "BUR:";
+
+  // asset type lists per category; witcam types say so
+  const ASSET_TYPES = {
+    ENV:   [["PHOTOG", "Photog"], ["TEXTURES", "Textures"], ["GSPLAT", "Gsplat"], ["PLATE", "Plate (witcam)"]],
+    PROP:  [["PHOTOG", "Photog"], ["TEXTURES", "Textures"]],
+    CHAR:  [["PHOTOG", "Photog"], ["WSCAN", "Wrangler scan"], ["FACIAL", "Facial (witcam)"]],
+    VEH:   [["PHOTOG", "Photog"], ["TEXTURES", "Textures"]],
+    TILES: [["PHOTOG", "Photog"], ["TEXTURES", "Textures"]],
+  };
+  const $ = id => document.getElementById(id);
+  const words = s => (s || "").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2").toUpperCase();   // MainHallEast -> MAIN HALL EAST
+  const up = s => (s || "").replace(/\s+/g, " ").trim().toUpperCase();
+  const num = (id, min = 1) => Math.max(min, parseInt($(id).value, 10) || min);
+
+  let mode = "slate", shown = null;          // shown: the line on screen (or "DO NOT USE")
+  // each type keeps its own specific: VB, Photog, Textures… never share one (Steve, 13 Oct 2026)
+  let specs = {}, specKey = null;
+  const cfgKey = () => mode === "slate" ? "S:" + $("f-type").value : "A:" + $("f-cat").value + ":" + $("f-atype").value;
+
+  // ---------- fill the lists ----------
+  function fillAssetTypes() {
+    const keep = $("f-atype").value;
+    $("f-atype").innerHTML = ASSET_TYPES[$("f-cat").value].map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+    if ([...$("f-atype").options].some(o => o.value === keep)) $("f-atype").value = keep;
+  }
+
+  // ---------- which fields show ----------
+  function show(id, on) { $(id).hidden = !on; }
+  function refreshFields() {
+    document.querySelectorAll("[data-for]").forEach(el => { el.hidden = el.dataset.for !== mode; });
+    $("mode-slate").setAttribute("aria-pressed", mode === "slate"); $("mode-asset").setAttribute("aria-pressed", mode === "asset");
+    let spec = false, specLabel = "Specific", specReq = false, pos = false, posLabel = "Pos", npos = false, add = false, focal = false, take = false, note = "";
+    if (mode === "slate") {
+      const t = $("f-type").value;
+      show("w-slate2", t === "INSTA" || t === "REF");     // HDRI, Witness, VB, VB PMP, Photog, Textures, Gsplat are slate-specific only (Steve, 13 Oct 2026)
+      if (t === "HDRI") { spec = true; pos = true; npos = true; note = "HDRI: specific only if the spot needs noting (a CG character's mark). Shown as text, no QR — the QR does not survive the fisheye."; }
+      else if (t === "INSTA") { note = "Insta360: the slate number only — positions are numbered by capture order. Shown as text, no QR."; }
+      else if (t === "REF") { spec = true; pos = true; add = true; note = "Pos 1 is plain ref. A specific gets its own folder beside stills (reflection ref)."; }
+      else if (t === "VB" || t === "VB PMP") { spec = true; pos = true; }
+      else if (t === "PHOTOG") { spec = true; specReq = true; pos = true; posLabel = "Pos (set)"; note = "Photog: the specific is the set's name; pos 2 is a second set."; }
+      else if (t === "TEXTURES") { spec = true; specReq = true; }
+      else if (t === "GSPLAT") { spec = true; specReq = true; pos = true; }
+      else if (t === "WITNESS") { focal = true; take = true; note = WITNESS_NOTE; }
+    } else {
+      fillAssetTypes();
+      const c = $("f-cat").value, t = $("f-atype").value;
+      const listed = c === "ENV" || c === "VEH" || c === "TILES";
+      show("w-loc", listed);
+      $("w-loc").querySelector("label").textContent = c === "VEH" ? "Vehicle / location" : "Location";
+      show("w-char", c === "CHAR");
+      show("w-name", c === "PROP");
+      $("l-name").textContent = "Prop name"; $("f-name").placeholder = "OLD BOOK";
+      show("w-stunt", t === "FACIAL"); show("w-date", t === "FACIAL");
+      if (t === "FACIAL" && !$("f-date").value) $("f-date").value = today();
+      if (t === "PLATE") { spec = true; specReq = true; focal = true; take = true; note = "ENV plate: a background plate on a witcam, filed in the day's Assets under the location."; }
+      else if (t === "FACIAL") { focal = true; take = true; note = "Facial capture: character, real name, date, take. The camera is the folder."; }
+      else if (t === "WSCAN") { note = "Wrangler scan: the character's name is the asset."; }
+      else { spec = true; specReq = c !== "PROP" && t !== "WSCAN"; pos = t === "GSPLAT"; }
+      if (c === "PROP" && t !== "PLATE") specReq = false;
+    }
+    const k = cfgKey();
+    if (k !== specKey) { if (specKey) { specs[specKey] = $("f-spec").value; save(); } $("f-spec").value = specs[k] || ""; specKey = k; }
+    show("w-spec", spec); $("l-spec").textContent = specReq ? "Specific" : "Specific (optional)";
+    show("w-pos", pos); $("l-pos").textContent = posLabel;
+    show("w-npos", npos); show("w-add", add); show("w-focal", focal); show("w-take", take);
+    $("note").textContent = note;
+    build(); fit();
+  }
+
+  function today() { const d = new Date(); return String(d.getFullYear()).slice(2) + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0"); }
+
+  // ---------- the slate line (the kit's grammar) ----------
+  // returns {line, textOnly, missing}
+  function build() {
+    // only the fields on screen count: a value left in a hidden field (a specific typed for another type) is ignored
+    const spec = $("w-spec").hidden ? "" : up($("f-spec").value);
+    const focal = $("w-focal").hidden ? "" : (($("f-focal").value || "").match(/\d+/) || [""])[0];
+    const pos = num("f-pos"), take = num("f-take");
+    let parts = [], textOnly = false, missing = "";
+    if (mode === "slate") {
+      const s1 = up($("f-slate").value), s2 = $("w-slate2").hidden ? "" : up($("f-slate2").value);
+      if (!s1) missing = "type the slate";
+      // + Slate: every word is another slate ("40A 40B 40C" = three more), each filed a plain copy (Steve, 13 Oct 2026)
+      const extra = s2.split(/[\s,+&]+/).filter(x => x && x !== s1);
+      const slate = [s1, ...extra.filter((x, i) => extra.indexOf(x) === i)].filter(Boolean).join(" + ");
+      const t = $("f-type").value;
+      const withPos = (txt, always) => (txt && (always || pos > 1)) ? `${txt} POS ${pos}` : (always || pos > 1) ? `POS ${pos}` : txt;
+      if (t === "HDRI") { const n = +$("f-npos").value; parts = [slate, (spec ? spec + " " : "") + (n > 1 ? `POS ${pos}-${pos + n - 1}` : `POS ${pos}`)]; textOnly = true; }
+      else if (t === "INSTA") { parts = [slate]; textOnly = true; }
+      else if (t === "REF") { parts = [slate, "REF"]; const tail = withPos(spec, false); if (tail) parts.push(tail); if ($("f-add").checked && !$("w-add").hidden) parts.push("ADD"); }
+      else if (t === "VB" || t === "VB PMP") parts = [slate, t, withPos(spec, true)];
+      else if (t === "PHOTOG" || t === "TEXTURES") { if (!spec) missing = missing || "type the specific"; parts = [slate, t, t === "PHOTOG" ? withPos(spec, false) : spec]; }
+      else if (t === "GSPLAT") { if (!spec) missing = missing || "type the specific"; parts = [slate, t, withPos(spec, true)]; }
+      else if (t === "WITNESS") { parts = [slate]; if (focal) parts.push(`${focal}MM`); parts.push(`TK${take}`); }
+    } else {
+      const c = $("f-cat").value, t = $("f-atype").value;
+      const loc = up($("f-loc").value);
+      const chr = up($("f-char").value);
+      if (t === "FACIAL") {
+        const stunt = up($("f-stunt").value), date = ($("f-date").value || "").replace(/\D/g, "");
+        if (!chr) missing = "pick or type the character"; else if (!stunt) missing = "type the real name"; else if (date.length !== 6) missing = "date as yymmdd";
+        parts = [`${chr} - ${stunt}`]; if (focal) parts.push(`${focal}MM`); parts.push(date, `TK${take}`);
+      } else if (t === "PLATE") {
+        if (!loc) missing = "pick or type the location"; else if (!spec) missing = "type the specific";
+        parts = ["ENV", loc, spec]; if (focal) parts.push(`${focal}MM`); parts.push(`TK${take}`);
+      } else {
+        const name = c === "CHAR" ? chr : c === "PROP" ? up($("f-name").value) : loc;
+        if (!name) missing = c === "CHAR" ? "pick or type the character" : c === "PROP" ? "type the prop name" : "pick or type the location";
+        else if (!spec && t !== "WSCAN" && c !== "PROP") missing = "type the specific";
+        parts = [c, name, t];
+        const tail = t === "GSPLAT" ? `${spec ? spec + " " : ""}POS ${pos}` : spec;
+        if (tail) parts.push(tail);
+      }
+    }
+    const line = parts.filter(Boolean).join(" / ");
+    renderPreview(line, textOnly, missing);
+    return { line, textOnly, missing, take: !$("w-take").hidden };      // take: Witness, ENV Plate, CHAR Facial — swipe the TK line
+  }
+
+  function fitLine() {
+    const p = $("preview"), t = p.firstElementChild, u = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tu")) || 1;
+    if (!t) return;
+    const cs = getComputedStyle(p), room = p.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    let size = 15 * u; p.style.fontSize = size + "px";
+    while (t.offsetHeight > room + 1 && size > 7) { size -= 0.5; p.style.fontSize = size + "px"; }
+  }
+  function renderPreview(line, textOnly, missing) {
+    const box = $("preview"), p = document.createElement("span"); p.className = "lt"; box.textContent = ""; box.append(p);
+    if (missing) { const w = document.createElement("span"); w.className = "why"; w.textContent = "↳ " + missing; p.append(line ? line + "  " : "", w); }
+    else { p.append(line); const t = document.createElement("span"); t.className = "tag"; t.textContent = textOnly ? "text only" : "text + QR"; p.append(t); }
+    fitLine();
+    $("show").disabled = !!missing;
+    const bumpable = !$("w-take").hidden || !$("w-pos").hidden;
+    $("bump").hidden = !bumpable || !!missing;
+    $("bump").textContent = !$("w-take").hidden ? "TK +1 & Show" : "POS +1 & Show";
+  }
+
+  // ---------- the slate screen ----------
+  const measure = document.createElement("canvas").getContext("2d");
+  function layout(s, boxW, boxH) {
+    const ws = [];
+    for (const w of s.split(" ")) { if ((w === "/" || w === "-" || w === "+") && ws.length) ws[ws.length - 1] += " " + w; else if (w) ws.push(w); }
+    measure.font = `700 100px ${getComputedStyle($("slateText")).fontFamily}`;
+    const width = t => measure.measureText(t).width / 100, lh = 1.12, gaps = ws.length - 1;
+    let best = null;
+    const tryBreaks = breaks => {
+      const lines = []; let start = 0;
+      for (const b of breaks) { lines.push(ws.slice(start, b + 1).join(" ")); start = b + 1; }
+      lines.push(ws.slice(start).join(" "));
+      const size = Math.min(boxW / Math.max(...lines.map(width)), boxH / (lines.length * lh));
+      const score = size * breaks.reduce((p, b) => p * (/[\/+-]$/.test(ws[b]) ? 1 : 0.9), 1);
+      if (!best || score > best.score) best = { lines, size, score };
+    };
+    const rec = (from, chosen) => { tryBreaks(chosen); if (chosen.length >= 4) return; for (let g = from; g < gaps; g++) rec(g + 1, chosen.concat(g)); };
+    rec(0, []);
+    return best;
+  }
+  function drawQR(text, side) {
+    const qr = qrcode(0, "M");
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs["UTF-8"];
+    qr.addData(PREFIX + text, "Byte"); qr.make();
+    const n = qr.getModuleCount(), quiet = 4, total = n + quiet * 2, dpr = window.devicePixelRatio || 1;
+    const mod = Math.max(1, Math.floor((side * dpr) / total)), px = mod * total, c = $("qr");
+    c.width = c.height = px; c.style.width = c.style.height = (px / dpr) + "px";
+    const g = c.getContext("2d"), css = getComputedStyle(document.documentElement);
+    g.fillStyle = css.getPropertyValue("--qr-paper").trim() || "#fff"; g.fillRect(0, 0, px, px);
+    g.fillStyle = css.getPropertyValue("--qr-ink").trim() || "#000";
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (qr.isDark(r, k)) g.fillRect((k + quiet) * mod, (r + quiet) * mod, mod, mod);
+  }
+  function renderSlate() {
+    if (!shown) return;
+    const st = $("stage"), solo = shown.textOnly, cs = getComputedStyle(st);
+    // the area inside the safe insets (iPhone landscape: the Dynamic Island side is kept clear — text was cut there)
+    const cw = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const ch = st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const portrait = ch > cw;
+    st.classList.toggle("solo", solo); st.classList.toggle("portrait", portrait && !solo);
+    $("qrHalf").hidden = solo;
+    const tb = $("slateText").parentElement.getBoundingClientRect();
+    const boxW = tb.width, boxH = tb.height;
+    const pad = Math.min(boxW, boxH) * 0.07;
+    const best = layout(shown.line, boxW - pad * 2, boxH - pad * 2);
+    // one span per line, so the take's line can be found for the swipe
+    const st2 = $("slateText"); st2.textContent = "";
+    const tkLine = shown.take ? best.lines.map(l => /\bTK\d+\b/.test(l)).lastIndexOf(true) : -1;
+    best.lines.forEach((l, i) => { if (i) st2.append("\n"); const sp = document.createElement("span"); sp.textContent = l; if (i === tkLine) sp.id = "tkline"; st2.append(sp); });
+    $("slateText").style.fontSize = Math.floor(best.size * 0.98) + "px";
+    if (!solo) {
+      const qb = $("qrHalf").getBoundingClientRect();
+      const side = Math.floor(Math.min(qb.width, qb.height) * 0.94);
+      try { drawQR(shown.line, side); $("qrBox").style.width = $("qrBox").style.height = side + "px"; }
+      catch (e) { $("qrHalf").hidden = true; st.classList.add("solo"); }
+    }
+  }
+
+  let wakeLock = null;
+  async function keepAwake() {
+    try { if ("wakeLock" in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } }
+    catch (e) { wakeLock = null; }
+  }
+  function goSlate(obj) {
+    shown = obj;
+    if (obj.line !== "DO NOT USE") learnFromForm();
+    if (document.activeElement) document.activeElement.blur();          // the keyboard goes away
+    $("editor").hidden = true; $("stage").hidden = false;
+    // in a browser tab (not the home-screen app) the slate goes full screen where the phone allows it (Android; not iPhone Safari)
+    const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
+    if (!standalone && document.fullscreenEnabled && !document.fullscreenElement && document.documentElement.requestFullscreen)
+      document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    requestAnimationFrame(renderSlate); keepAwake(); save();
+  }
+  function goEdit() {
+    const ed = $("editor");
+    ed.inert = true; ed.classList.add("settling");                      // swallow the rest of the double-tap
+    if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    $("stage").hidden = true; ed.hidden = false; build(); fit();
+    setTimeout(() => { ed.inert = false; ed.classList.remove("settling"); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, 500);
+  }
+
+  // ---------- location, prop and character: type anything; names are offered as you type (tap one to fill) ----------
+  // offered = this production's list (if built in) + every name shown on a slate on this phone; x forgets a learned one
+  const LEARN_KEY = "bur-slate-names";
+  let learned = { loc: [], prop: [], char: [] };
+  try { const l = JSON.parse(localStorage.getItem(LEARN_KEY) || "{}"); ["loc", "prop", "char"].forEach(k => { if (Array.isArray(l[k])) learned[k] = l[k]; }); } catch (e) {}
+  const keepLearned = () => { try { localStorage.setItem(LEARN_KEY, JSON.stringify(learned)); } catch (e) {} };
+  function learn(kind, name) {
+    name = up(name); if (!name) return;
+    learned[kind] = [name, ...learned[kind].filter(x => x !== name)].slice(0, 300); keepLearned();
+  }
+  function forget(kind, name) { learned[kind] = learned[kind].filter(x => x !== name); keepLearned(); }
+  function suggest(kind, boxId, listId, builtIn, active, newNote) {
+    const box = $(boxId), list = $(listId), fixed = builtIn.map(words);
+    function render() {
+      const open = active() && document.activeElement === box;
+      list.textContent = "";
+      if (open) {
+        const typed = up(box.value), terms = typed.split(" ").filter(Boolean);
+        const mine = learned[kind].filter(x => !fixed.includes(x));
+        const known = [...mine, ...fixed], match = p => p !== typed && terms.every(t => p.includes(t));
+        if (typed && !known.includes(typed)) {
+          const h = document.createElement("div"); h.className = "hint";
+          h.textContent = newNote + (known.some(match) ? " Or tap a known one:" : "");
+          list.append(h);
+        }
+        known.filter(match).forEach(p => {
+          const b = document.createElement("button"); b.type = "button"; b.className = "pick"; b.setAttribute("role", "option"); b.textContent = p;
+          if (!mine.includes(p)) { list.append(b); return; }
+          const row = document.createElement("div"); row.className = "row";
+          const x = document.createElement("button"); x.type = "button"; x.className = "forget"; x.textContent = "×"; x.dataset.name = p;
+          x.setAttribute("aria-label", "Forget " + p);
+          row.append(b, x); list.append(row);
+        });
+      }
+      list.hidden = !list.children.length;
+      box.setAttribute("aria-expanded", String(!list.hidden));
+    }
+    list.addEventListener("mousedown", e => e.preventDefault());        // keep the text box focused while tapping a suggestion
+    list.addEventListener("click", e => {
+      const x = e.target.closest(".forget");
+      if (x) { forget(kind, x.dataset.name); render(); return; }
+      const b = e.target.closest(".pick"); if (!b) return;
+      box.value = b.textContent; list.hidden = true; box.blur(); build(); save();
+    });
+    box.addEventListener("focus", render);
+    box.addEventListener("input", render);
+    box.addEventListener("blur", () => setTimeout(render, 200));
+  }
+  suggest("prop", "f-name", "name-sugg", PROPS, () => $("f-cat").value === "PROP", "New prop — filed as typed.");
+  suggest("loc", "f-loc", "loc-sugg", LOCATIONS, () => !$("w-loc").hidden, "New location — fine; the kit flags it CHECK until it is on the production list.");
+  suggest("char", "f-char", "char-sugg", CHARACTERS, () => !$("w-char").hidden, "New character — filed as typed.");
+  function learnFromForm() {
+    if (mode !== "asset") return;
+    if (!$("w-loc").hidden) learn("loc", $("f-loc").value);
+    if (!$("w-name").hidden) learn("prop", $("f-name").value);
+    if (!$("w-char").hidden) learn("char", $("f-char").value);
+  }
+
+  // ---------- size the form to the screen (any phone or iPad, either way up) ----------
+  // every size in the form is a multiple of --u: find the biggest --u at which the fields fit without scrolling
+  // pass 1: columns follow the size (160 x u each); pass 2: keep that column count and grow on while columns stay usable (145 x u)
+  const U_MIN = 0.85, U_MAX = 2.4;
+  let lockedCols = 0;
+  let probing = false;                                                    // true while finding Witness's size: the top follows the form, as it used to
+  const setTU = x => document.documentElement.style.setProperty("--tu", x.toFixed(3));
+  function setU(u) {
+    const f = $("fields");
+    document.documentElement.style.setProperty("--u", u.toFixed(3));
+    if (probing) setTU(u);
+    const top = $("top");
+    const cs = getComputedStyle(f), cw = f.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const gap = 12 * u;
+    const cols = lockedCols || Math.max(1, Math.floor((cw + gap) / (Math.min(cw, 160 * u) + gap)));
+    f.style.setProperty("--cols", String(cols));
+    f.style.setProperty("--wide", String(Math.min(2, cols)));            // wide fields never span more columns than exist
+    if (probing && !topFits()) return false;
+    if (f.scrollWidth > f.clientWidth + 1) return false;                                        // nothing wider than the screen
+    if ([...f.querySelectorAll("select")].some(x => x.offsetParent && !selectFits(x))) return false;   // the chosen word always shows in full ("Te…")
+    const usable = !lockedCols || cols === 1 || (cw - gap * (cols - 1)) / cols >= 145 * u;
+    return usable && f.scrollHeight <= f.clientHeight + 1;
+  }
+  // the top section fits across: buttons never cut, nothing past the screen edge (iPhone, Textures: Slate | Asset + theme ran off)
+  function topFits() {
+    const top = $("top"), acts = $("acts");
+    if (acts.scrollWidth > acts.clientWidth + 1 || [...acts.children].some(x => !x.hidden && x.scrollWidth > x.clientWidth + 1)) return false;
+    const edge = top.getBoundingClientRect().right - parseFloat(getComputedStyle(top).paddingRight) + 1;
+    const els = [...top.querySelectorAll(".seg, .tools, #theme, .line, .acts")].filter(x => x.offsetParent), rs = els.map(x => x.getBoundingClientRect());
+    if (rs.some(r => r.right > edge)) return false;
+    return !rs.some((a, i) => rs.some((b, k) => k > i && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1));   // nothing on top of anything
+  }
+  const measureSel = document.createElement("canvas").getContext("2d");
+  function selectFits(sel) {
+    const cs = getComputedStyle(sel), o = sel.options[sel.selectedIndex];
+    measureSel.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return !o || measureSel.measureText(o.text).width * 1.05 + 2 <= sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // with a margin: phones round text wider
+  }
+  function search(lo, hi) {
+    for (let i = 0; i < 10 && hi - lo > 0.01; i++) { const mid = (lo + hi) / 2; if (setU(mid)) lo = mid; else hi = mid; }
+    return lo;
+  }
+  function fit() {
+    const f = $("fields");
+    if ($("editor").hidden || !f.clientHeight) return;
+    f.classList.add("measuring"); f.classList.remove("locked", "nonote"); lockedCols = 0;
+    const ed = $("editor"), land = ed.clientWidth > ed.clientHeight;
+    $("top").classList.toggle("landscape", land);
+    // a phone on its side is short: let it go a little smaller before anything scrolls (typed text never under 16px)
+    uMin = land ? 0.75 : 0.8;                                            // (iPhone SE, Facial: the fixed top leaves a little less room)
+    const sa = getComputedStyle($("stage"));                            // the safe insets (iPhone island side) count as a change of screen
+    const screenKey = [ed.clientWidth, ed.clientHeight, sa.paddingLeft, sa.paddingRight, sa.paddingTop].join("|");
+    if (screenKey !== topKey) { topKey = screenKey; tuNow = topSize(f, land); }
+    setTU(tuNow);
+    const u = sizeTo(f);
+    // the help line goes first: before the form scrolls or drops below its usual size (iPhone / Fold on their side)
+    if ((u < U_MIN || f.scrollHeight > f.clientHeight + 1) && $("note").textContent) { f.classList.add("nonote"); sizeTo(f); }
+    f.classList.remove("measuring");
+    fitLine();
+  }
+  let uMin = U_MIN;
+  // ---------- the top section: one size per screen and way up, whatever the type (Steve, 13 Oct 2026) ----------
+  // "The ideal size in portrait is for WITNESS": the size Witness's own form would give it, then made to fit with the longest
+  // button label showing (POS +1 & Show). On its side the top keeps to a quarter of the screen so the longest forms still fit.
+  let topKey = "", tuNow = 1;
+  const WITNESS_NOTE = "The camera is the folder the clip is sorted into — no camera on the board.";
+  function witnessU(f) {
+    const kept = [...f.querySelectorAll("[data-for], .field")].map(e => [e, e.hidden]);
+    const type = $("f-type"), oldType = type.value, note = $("note"), oldNote = note.textContent, bump = $("bump"), oldBump = [bump.hidden, bump.textContent];
+    f.querySelectorAll("[data-for]").forEach(e => { e.hidden = e.dataset.for !== "slate"; });
+    ["w-slate2", "w-spec", "w-pos", "w-npos", "w-add"].forEach(id => { $(id).hidden = true; });
+    $("w-focal").hidden = false; $("w-take").hidden = false;
+    type.value = "WITNESS"; note.textContent = WITNESS_NOTE; bump.hidden = false; bump.textContent = "TK +1 & Show";
+    probing = true; let u;
+    try { u = sizeTo(f); } finally {
+      probing = false;
+      kept.forEach(([e, h]) => { e.hidden = h; }); type.value = oldType; note.textContent = oldNote; bump.hidden = oldBump[0]; bump.textContent = oldBump[1];
+    }
+    return u;
+  }
+  function topSize(f, land) {
+    const uw = witnessU(f), bump = $("bump"), old = [bump.hidden, bump.textContent], ed = $("editor");
+    bump.hidden = false; bump.textContent = "POS +1 & Show";
+    const ok = x => { setTU(x); return topFits() && (!land || $("top").offsetHeight <= ed.clientHeight * 0.25); };
+    let tu = uw;
+    if (!ok(tu)) { let lo = 0.6, hi = uw; for (let i = 0; i < 12 && hi - lo > 0.005; i++) { const mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; } tu = lo; }
+    bump.hidden = old[0]; bump.textContent = old[1];
+    return tu;
+  }
+  function sizeTo(f) {
+    f.classList.remove("locked"); lockedCols = 0;
+    // never bigger than the screen's short side allows: a short form (Textures) leaves room below rather than giant text
+    // (phone portrait about x1.5, iPad x2.4; Steve, 13 Oct 2026: "textures type text is too big in portrait")
+    // (the top no longer holds the fields back, so /300 keeps phones where Steve signed them off: Fold ~1.37, iPhone 16 Pro ~1.34)
+    const cap = Math.max(1, Math.min(U_MAX, Math.min(window.innerWidth, window.innerHeight) / 300));
+    let u;
+    if (!setU(1)) u = search(uMin, 1);
+    else if (setU(cap)) u = cap;
+    else u = search(1, cap);
+    setU(u);
+    if (u < cap) {                                                       // pass 2
+      const u1 = u;
+      lockedCols = getComputedStyle(f).gridTemplateColumns.split(" ").filter(Boolean).length || 1; f.classList.add("locked");
+      u = setU(cap) ? cap : search(u1, cap);
+      if (!setU(u)) { lockedCols = 0; f.classList.remove("locked"); setU(u1); u = u1; }   // never worse than pass 1
+    }
+    return u;
+  }
+  // with the keyboard up, let the fields scroll so the box being typed in can sit above it
+  function keyboard() {
+    const vv = window.visualViewport; if (!vv) return;
+    const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop), f = $("fields");
+    f.style.paddingBottom = covered > 80 ? (covered + 24) + "px" : "";
+    const a = document.activeElement;
+    if (covered > 80 && a && a.matches && a.matches(".field input")) a.scrollIntoView({ block: "nearest" });
+  }
+  const typing = () => { const a = document.activeElement; return !!(a && a.matches && a.matches(".field input:not([type=checkbox]), .field select")); };
+  let lastW = window.innerWidth;
+  function onResize() {
+    requestAnimationFrame(renderSlate);
+    if (window.innerWidth !== lastW || !typing()) { lastW = window.innerWidth; requestAnimationFrame(fit); }   // the keyboard opening never shrinks the form
+  }
+
+  // ---------- light / dark (the slate follows: white text on black, or black text on white) ----------
+  const systemTheme = () => (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+  const themeNow = () => document.documentElement.dataset.theme || systemTheme();
+  function labelTheme() { $("theme").setAttribute("aria-label", themeNow() === "light" ? "Switch to dark mode" : "Switch to light mode"); }
+  try { const t = localStorage.getItem("bur-slate-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  labelTheme();
+  $("theme").addEventListener("click", () => {
+    const t = themeNow() === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = t; labelTheme();
+    try { localStorage.setItem("bur-slate-theme", t); } catch (e) {}
+  });
+
+  // ---------- Clear (Steve, 13 Oct 2026): a fresh start — every typed box empty, takes / positions back to 1 ----------
+  // The mode and the types picked stay; the names the phone has learned and light / dark stay. Undo for a few seconds.
+  function snapshot() {
+    const s = { mode, add: $("f-add").checked, specs: Object.assign({}, specs), vals: {} };
+    if (specKey) s.specs[specKey] = $("f-spec").value;
+    KEEP.concat(["f-date"]).forEach(id => { s.vals[id] = $(id).value; });
+    return s;
+  }
+  function restore(s) {
+    mode = s.mode;
+    $("f-cat").value = s.vals["f-cat"]; fillAssetTypes();
+    KEEP.concat(["f-date"]).forEach(id => { if (s.vals[id] != null) $(id).value = s.vals[id]; });
+    $("f-add").checked = s.add; specs = s.specs; specKey = null;
+    refreshFields(); save();
+  }
+  let toastTimer = null, undoSnap = null;
+  function clearAll() {
+    undoSnap = snapshot();
+    ["f-slate", "f-slate2", "f-spec", "f-loc", "f-char", "f-name", "f-stunt", "f-focal"].forEach(id => { $(id).value = ""; });
+    ["f-pos", "f-take"].forEach(id => { $(id).value = "1"; });
+    $("f-npos").value = "1"; $("f-add").checked = false; $("f-date").value = today();
+    specs = {};
+    refreshFields(); save();
+    $("toast").hidden = false; clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $("toast").hidden = true; undoSnap = null; }, 6000);
+  }
+  $("clear").addEventListener("click", clearAll);
+  $("toast-undo").addEventListener("click", () => { if (undoSnap) restore(undoSnap); undoSnap = null; $("toast").hidden = true; clearTimeout(toastTimer); });
+
+  // ---------- events ----------
+  $("top").addEventListener("submit", e => { e.preventDefault(); const b = build(); if (!b.missing) goSlate(b); });
+  $("fields").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); const b = build(); if (!b.missing) goSlate(b); } });
+  $("mode-slate").addEventListener("click", () => { mode = "slate"; refreshFields(); });
+  $("mode-asset").addEventListener("click", () => { mode = "asset"; refreshFields(); });
+  ["f-type", "f-cat", "f-atype", "f-npos", "f-add"].forEach(id => $(id).addEventListener("change", refreshFields));
+  $("fields").addEventListener("input", () => { build(); save(); });   // remembered as you type
+  document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => {
+    const id = b.dataset.step; $(id).value = Math.max(1, num(id) + (+b.dataset.d)); build();
+  }));
+  $("bump").addEventListener("click", () => {
+    const id = !$("w-take").hidden ? "f-take" : "f-pos"; $(id).value = num(id) + 1;
+    const b = build(); if (!b.missing) goSlate(b);
+  });
+  $("dnu").addEventListener("click", () => goSlate({ line: "DO NOT USE", textOnly: true, missing: "" }));
+  // double-tap the QR code (its half of the screen) to go back; with no QR (HDRI, Insta360, DO NOT USE) double-tap anywhere
+  // ---------- witcam slates: swipe the TK line — right to left = next take, left to right = take back (Steve, 13 Oct 2026) ----------
+  // The strip is the take's line across the whole text half, a little above and below it; QR and form follow.
+  let swipe = null;
+  function inTakeStrip(e) {
+    const tk = $("tkline"); if (!shown || !shown.take || !tk) return false;
+    const half = $("slateText").parentElement.getBoundingClientRect(), r = tk.getBoundingClientRect(), pad = r.height * 0.35;
+    return e.clientX >= half.left && e.clientX <= half.right && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
+  }
+  $("stage").addEventListener("pointerdown", e => {
+    swipe = inTakeStrip(e) ? { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId } : null;
+  });
+  $("stage").addEventListener("pointercancel", () => { swipe = null; });
+  function endSwipe(e) {
+    const s = swipe; swipe = null;
+    if (!s || s.id !== e.pointerId || Date.now() - s.t > 1000) return false;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y, half = $("slateText").parentElement.getBoundingClientRect();
+    if (Math.abs(dx) < Math.max(40, half.width * 0.12) || Math.abs(dx) < Math.abs(dy) * 1.5) return false;
+    const take = Math.max(1, num("f-take") + (dx < 0 ? 1 : -1));        // like turning a page: drag the next take in from the right
+    if (take !== num("f-take")) {
+      $("f-take").value = take;
+      const b = build(); if (!b.missing) { shown = b; renderSlate(); save(); }
+    }
+    return true;
+  }
+  let lastTap = 0, wentBack = 0;
+  const onBackTarget = e => shown && (shown.textOnly || $("qrHalf").hidden || !!e.target.closest("#qrHalf"));
+  $("stage").addEventListener("pointerup", e => {
+    if (endSwipe(e)) { lastTap = 0; return; }                          // a swipe is never half a double-tap
+    if (!onBackTarget(e)) { lastTap = 0; return; }
+    const now = Date.now();
+    if (now - lastTap < 400) { lastTap = 0; wentBack = now; goEdit(); } else lastTap = now;
+  });
+  $("stage").addEventListener("touchend", e => { if (Date.now() - wentBack < 600) e.preventDefault(); });   // no click/focus from the second tap
+  $("stage").addEventListener("contextmenu", e => e.preventDefault());
+  window.addEventListener("resize", onResize);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", keyboard);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !$("stage").hidden) keepAwake(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { renderSlate(); topKey = ""; fit(); });   // fonts in: size the top again
+
+  // ---------- remember the last slate (this phone only) ----------
+  const KEEP = ["f-slate", "f-slate2", "f-type", "f-cat", "f-atype", "f-loc", "f-char", "f-name", "f-stunt", "f-pos", "f-npos", "f-focal", "f-take"];
+  function save() {
+    if (specKey) specs[specKey] = $("f-spec").value;
+    try { const s = { mode, add: $("f-add").checked, specs }; KEEP.forEach(id => s[id] = $(id).value); localStorage.setItem("bur-slate-v2", JSON.stringify(s)); } catch (e) {}
+  }
+  function load() {
+    let s = null; try { s = JSON.parse(localStorage.getItem("bur-slate-v2") || "null"); } catch (e) {}
+    if (!s) s = { mode: "slate", "f-slate": "83A", "f-type": "REF", "f-pos": "1", "f-take": "1" };   // example to start from
+    mode = s.mode === "asset" ? "asset" : "slate";
+    $("f-cat").value = s["f-cat"] || "ENV"; fillAssetTypes();
+    KEEP.forEach(id => { if (s[id] != null && s[id] !== "") $(id).value = s[id]; });
+    specs = (s.specs && typeof s.specs === "object") ? s.specs : {};
+    if (!s.specs && s["f-spec"]) specs[cfgKey()] = s["f-spec"];          // a specific saved before per-type memory
+    $("f-add").checked = !!s.add;
+    $("f-loc").value = words($("f-loc").value);
+    $("f-char").value = s["f-char"] === "__other" ? (s["f-cname"] || "") : words($("f-char").value);   // saved before the character box could be typed in
+  }
+  load();
+  refreshFields();
+})();
+</script>
