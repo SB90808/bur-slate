@@ -720,7 +720,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   });
   $("dnu").addEventListener("click", () => goSlate({ line: "DO NOT USE", textOnly: true, missing: "" }));
   // double-tap the QR code (its half of the screen) to go back; with no QR (HDRI, Insta360, DO NOT USE) double-tap anywhere
-  // ---------- witcam slates: swipe the TK line — right = next take, left = take back (13 Oct 2026) ----------
+  // ---------- witcam slates: swipe the TK line — right to left = next take, left to right = take back (13 Oct 2026) ----------
   // The strip is the take's line across the whole text half, a little above and below it; QR and form follow.
   let swipe = null;
   function inTakeStrip(e) {
@@ -737,7 +737,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (!s || s.id !== e.pointerId || Date.now() - s.t > 1000) return false;
     const dx = e.clientX - s.x, dy = e.clientY - s.y, half = $("slateText").parentElement.getBoundingClientRect();
     if (Math.abs(dx) < Math.max(40, half.width * 0.12) || Math.abs(dx) < Math.abs(dy) * 1.5) return false;
-    const take = Math.max(1, num("f-take") + (dx > 0 ? 1 : -1));
+    const take = Math.max(1, num("f-take") + (dx < 0 ? 1 : -1));        // like turning a page: drag the next take in from the right
     if (take !== num("f-take")) {
       $("f-take").value = take;
       const b = build(); if (!b.missing) { shown = b; renderSlate(); save(); }
@@ -783,7 +783,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-173721)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-175258)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
