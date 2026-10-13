@@ -96,6 +96,9 @@
   .field.wide { grid-column: 1 / -1; }                 /* specific, location, names: the full width, every layout */
   .pair { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: calc(12px * var(--u)); }
   .pair .both { grid-column: 1 / -1; }
+  /* a phone on its side has room across but not down: Focal · Date · Take share one row (the pair dissolves, the take is a plain field) */
+  .fields.landscape #w-fd { display: contents; }
+  .fields.landscape #w-take { grid-column: auto; }
   .field label { font-size: calc(13px * var(--u)); color: var(--muted); padding-left: calc(2px * var(--u));
                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .field input, .field select { font: 600 max(16px, calc(17px * var(--u))) var(--font-ui); text-overflow: ellipsis; color: var(--ui-fg); background: var(--field);
@@ -119,7 +122,7 @@
   .step button { flex: none; width: calc(46px * var(--u)); font: 400 calc(22px * var(--u)) var(--font-ui); color: var(--ui-fg); background: var(--field);
                  border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); cursor: pointer; }
   /* ADD tick box: the same size as the + / − buttons, so it is easy to hit */
-  .check { flex-direction: row; align-items: center; gap: calc(12px * var(--u)); align-self: end; }
+  .check { flex-direction: row; align-items: center; justify-content: flex-end; gap: calc(10px * var(--u)); align-self: end; }   /* the words hug the tick box, not the field beside */
   .check input { flex: none; width: calc(46px * var(--u)); height: calc(46px * var(--u)); padding: 0; cursor: pointer;
                  -webkit-appearance: none; appearance: none; display: grid; place-content: center;
                  border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); background: var(--field); }
@@ -128,7 +131,7 @@
                          transform: rotate(-45deg); opacity: 0; }
   .check input:checked { background: var(--go); border-color: var(--go); }
   .check input:checked::before { opacity: 1; }
-  .check label { font-size: calc(15px * var(--u)); color: var(--ui-fg); white-space: normal; padding-left: 0; cursor: pointer; }
+  .check label { font-size: calc(15px * var(--u)); color: var(--ui-fg); white-space: normal; padding-left: 0; cursor: pointer; flex: 0 1 auto; text-align: right; }
   .note:empty, .fields.nonote .note { display: none; }   /* a short screen drops the help line before anything scrolls */
   .toast { --u: var(--tu); position: absolute; left: 50%; bottom: max(calc(20px * var(--u)), var(--sab)); transform: translateX(-50%); z-index: 5;
            display: flex; align-items: center; gap: calc(14px * var(--u)); padding: calc(10px * var(--u)) calc(12px * var(--u)) calc(10px * var(--u)) calc(16px * var(--u));
@@ -156,6 +159,8 @@
   .half { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .text { font-family: var(--font-slate); font-weight: 700; color: var(--slate-fg); text-align: center; line-height: 1.12;
           white-space: pre; letter-spacing: -0.005em; }
+  .stamp { position: absolute; right: 0; bottom: 0; font-family: var(--font-slate); font-weight: 700; color: var(--muted);
+           white-space: nowrap; pointer-events: none; }   /* witcam date: for the eye only — not in the line, not in the QR (Steve, 13 Oct 2026) */
   .qrbox { background: var(--qr-paper); display: flex; align-items: center; justify-content: center; }
   .qrbox canvas { display: block; image-rendering: pixelated; }
 </style>
@@ -217,9 +222,9 @@
                role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="name-sugg">
         <div class="sugg" id="name-sugg" role="listbox" aria-label="Known props" hidden></div></div>
       <div class="field wide" data-for="asset" id="w-stunt"><label for="f-stunt">Real name</label>
-        <input autocomplete="off" id="f-stunt" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="JOHN SMITH" enterkeyhint="done"></div>
-      <div class="field" data-for="asset" id="w-date"><label for="f-date">Date <span class="opt">(yymmdd)</span></label>
-        <input autocomplete="off" id="f-date" type="text" inputmode="numeric" maxlength="6" placeholder="261013" enterkeyhint="done"></div>
+        <input autocomplete="off" id="f-stunt" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="JOHN SMITH" enterkeyhint="done"
+               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="stunt-sugg">
+        <div class="sugg" id="stunt-sugg" role="listbox" aria-label="Real names this phone has shown" hidden></div></div>
 
       <!-- shared by both -->
       <div class="field wide" id="w-spec"><label for="f-spec" id="l-spec">Specific</label>
@@ -231,9 +236,14 @@
       <div class="field" id="w-npos"><label for="f-npos">Positions in folder</label>
         <select id="f-npos"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
       <div class="field check" id="w-add"><label for="f-add">ADD (more ref, taken later)</label><input autocomplete="off" id="f-add" type="checkbox"></div>
-      <div class="field" id="w-focal"><label for="f-focal">Focal <span class="opt">(mm)</span></label>
-        <input autocomplete="off" id="f-focal" type="text" inputmode="numeric" placeholder="50" enterkeyhint="done"></div>
-      <div class="field" id="w-take"><label for="f-take">Take</label>
+      <!-- witcams: Focal | Date side by side, the take's − 1 + across the width under them (Steve, 13 Oct 2026) -->
+      <div class="pair" id="w-fd">
+        <div class="field" id="w-focal"><label for="f-focal">Focal <span class="opt">(mm)</span></label>
+          <input autocomplete="off" id="f-focal" type="text" inputmode="numeric" placeholder="50" enterkeyhint="done"></div>
+        <div class="field" id="w-date"><label for="f-date">Date <span class="opt">(yymmdd)</span></label>
+          <input autocomplete="off" id="f-date" type="text" inputmode="numeric" maxlength="6" placeholder="261013" enterkeyhint="done"></div>
+      </div>
+      <div class="field wide" id="w-take"><label for="f-take">Take</label>
         <div class="step"><button type="button" data-step="f-take" data-d="-1" aria-label="Take down">−</button>
           <input autocomplete="off" id="f-take" type="text" inputmode="numeric" value="1" enterkeyhint="done">
           <button type="button" data-step="f-take" data-d="1" aria-label="Take up">+</button></div></div>
@@ -242,7 +252,7 @@
   </section>
 
   <section class="stage" id="stage" hidden aria-label="Slate">
-    <div class="half"><div class="text" id="slateText"></div></div>
+    <div class="half"><div class="text" id="slateText"></div><div class="stamp" id="stamp" hidden></div></div>
     <div class="half" id="qrHalf"><div class="qrbox" id="qrBox"><canvas id="qr" aria-label="QR code of the slate line"></canvas></div></div>
   </section>
 </div>
@@ -316,8 +326,7 @@
       show("w-char", c === "CHAR");
       show("w-name", c === "PROP");
       $("l-name").textContent = "Prop name"; $("f-name").placeholder = "OLD BOOK";
-      show("w-stunt", t === "FACIAL"); show("w-date", t === "FACIAL");
-      if (t === "FACIAL" && !$("f-date").value) $("f-date").value = today();
+      show("w-stunt", t === "FACIAL");
       if (t === "PLATE") { spec = true; specReq = true; focal = true; take = true; note = "ENV plate: a background plate on a witcam, filed in the day's Assets under the location."; }
       else if (t === "FACIAL") { focal = true; take = true; note = "Facial capture: character, real name, date, take. The camera is the folder."; }
       else if (t === "WSCAN") { note = "Wrangler scan: the character's name is the asset."; }
@@ -329,6 +338,8 @@
     show("w-spec", spec); $("l-spec").textContent = specReq ? "Specific" : "Specific (optional)";
     show("w-pos", pos); $("l-pos").textContent = posLabel;
     show("w-npos", npos); show("w-add", add); show("w-focal", focal); show("w-take", take);
+    show("w-date", take); show("w-fd", focal || take);                     // every witcam slate carries the date beside the focal (Steve, 13 Oct 2026)
+    if (take && !$("f-date").value) $("f-date").value = today();
     $("note").textContent = note;
     faceSelects();
     build(); fit();
@@ -381,7 +392,11 @@
     }
     const line = parts.filter(Boolean).join(" / ");
     renderPreview(line, textOnly, missing);
-    return { line, textOnly, missing, take: !$("w-take").hidden };      // take: Witness, ENV Plate, CHAR Facial — swipe the TK line
+    // the witcam date (Witness, ENV Plate): shown small in the slate's corner for the eye only — never part of the line, so the kit's reading
+    // and the QR are untouched (Steve, 13 Oct 2026); Facial carries its date in the line already
+    const date = ($("f-date").value || "").replace(/\D/g, "");
+    const stamp = (!$("w-take").hidden && !(mode === "asset" && $("f-atype").value === "FACIAL") && date.length === 6) ? date : "";
+    return { line, textOnly, missing, take: !$("w-take").hidden, stamp };      // take: Witness, ENV Plate, CHAR Facial — swipe the TK line
   }
 
   function fitLine() {
@@ -446,7 +461,11 @@
     const tb = $("slateText").parentElement.getBoundingClientRect();
     const boxW = tb.width, boxH = tb.height;
     const pad = Math.min(boxW, boxH) * 0.07;
-    const best = layout(shown.line, boxW - pad * 2, boxH - pad * 2);
+    // the witcam date stamp sits in the bottom-right corner, a quarter the height of the line's type: the line keeps clear of it
+    const stampEl = $("stamp"), stampH = shown.stamp ? Math.max(14, Math.min(boxW, boxH) * 0.085) : 0;
+    const best = layout(shown.line, boxW - pad * 2, boxH - pad * 2 - stampH);
+    stampEl.hidden = !shown.stamp; stampEl.textContent = shown.stamp || "";
+    stampEl.style.fontSize = stampH + "px"; stampEl.style.right = pad + "px"; stampEl.style.bottom = (pad * 0.6) + "px";
     // one span per line, so the take's line can be found for the swipe
     const st2 = $("slateText"); st2.textContent = "";
     const tkLine = shown.take ? best.lines.map(l => /\bTK\d+\b/.test(l)).lastIndexOf(true) : -1;
@@ -487,8 +506,8 @@
   // ---------- location, prop and character: type anything; names are offered as you type (tap one to fill) ----------
   // offered = this production's list (if built in) + every name shown on a slate on this phone; x forgets a learned one
   const LEARN_KEY = "bur-slate-names";
-  let learned = { loc: [], prop: [], char: [] };
-  try { const l = JSON.parse(localStorage.getItem(LEARN_KEY) || "{}"); ["loc", "prop", "char"].forEach(k => { if (Array.isArray(l[k])) learned[k] = l[k]; }); } catch (e) {}
+  let learned = { loc: [], prop: [], char: [], real: [] };
+  try { const l = JSON.parse(localStorage.getItem(LEARN_KEY) || "{}"); ["loc", "prop", "char", "real"].forEach(k => { if (Array.isArray(l[k])) learned[k] = l[k]; }); } catch (e) {}
   const keepLearned = () => { try { localStorage.setItem(LEARN_KEY, JSON.stringify(learned)); } catch (e) {} };
   function learn(kind, name) {
     name = up(name); if (!name) return;
@@ -504,7 +523,7 @@
         const typed = up(box.value), terms = typed.split(" ").filter(Boolean);
         const mine = learned[kind].filter(x => !fixed.includes(x));
         const known = [...mine, ...fixed], match = p => p !== typed && terms.every(t => p.includes(t));
-        if (typed && !known.includes(typed)) {
+        if (typed && !known.includes(typed) && newNote) {                   // no note for real names: the list alone
           const h = document.createElement("div"); h.className = "hint";
           h.textContent = newNote + (known.some(match) ? " Or tap a known one:" : "");
           list.append(h);
@@ -535,11 +554,13 @@
   suggest("prop", "f-name", "name-sugg", PROPS, () => $("f-cat").value === "PROP", "New prop — filed as typed.");
   suggest("loc", "f-loc", "loc-sugg", LOCATIONS, () => !$("w-loc").hidden, "New location — fine; the kit flags it CHECK until it is on the production list.");
   suggest("char", "f-char", "char-sugg", CHARACTERS, () => !$("w-char").hidden, "New character — filed as typed.");
+  suggest("real", "f-stunt", "stunt-sugg", [], () => !$("w-stunt").hidden, "");
   function learnFromForm() {
     if (mode !== "asset") return;
     if (!$("w-loc").hidden) learn("loc", $("f-loc").value);
     if (!$("w-name").hidden) learn("prop", $("f-name").value);
     if (!$("w-char").hidden) learn("char", $("f-char").value);
+    if (!$("w-stunt").hidden) learn("real", $("f-stunt").value);       // real names come back as you type (Steve, 13 Oct 2026)
   }
 
   // ---------- size the form to the screen (any phone or iPad, either way up) ----------
@@ -595,7 +616,7 @@
     if ($("editor").hidden || !f.clientHeight) return;
     f.classList.add("measuring"); f.classList.remove("locked", "nonote"); lockedCols = 0;
     const ed = $("editor"), land = ed.clientWidth > ed.clientHeight;
-    $("top").classList.toggle("landscape", land);
+    $("top").classList.toggle("landscape", land); f.classList.toggle("landscape", land);
     // a phone on its side is short: let it go a little smaller before anything scrolls (typed text never under 16px)
     uMin = land ? 0.75 : 0.8;                                            // (iPhone SE, Facial: the fixed top leaves a little less room)
     const sa = getComputedStyle($("stage"));                            // the safe insets (iPhone island side) count as a change of screen
@@ -615,11 +636,11 @@
   let topKey = "", tuNow = 1;
   const WITNESS_NOTE = "The camera is the folder the clip is sorted into — no camera on the board.";
   function witnessU(f) {
-    const kept = [...f.querySelectorAll("[data-for], .field")].map(e => [e, e.hidden]);
+    const kept = [...f.querySelectorAll("[data-for], .field, #w-fd")].map(e => [e, e.hidden]);
     const type = $("f-type"), oldType = type.value, note = $("note"), oldNote = note.textContent, bump = $("bump"), oldBump = [bump.hidden, bump.textContent];
     f.querySelectorAll("[data-for]").forEach(e => { e.hidden = e.dataset.for !== "slate"; });
     ["w-slate2", "w-spec", "w-pos", "w-npos", "w-add"].forEach(id => { $(id).hidden = true; });
-    $("w-focal").hidden = false; $("w-take").hidden = false;
+    $("w-fd").hidden = false; $("w-focal").hidden = false; $("w-date").hidden = false; $("w-take").hidden = false;
     type.value = "WITNESS"; note.textContent = WITNESS_NOTE; bump.hidden = false; bump.textContent = "TK +1 & Show";
     probing = true; let u;
     try { u = sizeTo(f); } finally {

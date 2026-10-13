@@ -49,6 +49,9 @@ with sync_playwright() as p:
     lb, ab, plus = pg.locator("#w-add label").bounding_box(), pg.locator("#f-add").bounding_box(), pg.locator("[data-step=f-pos][data-d='1']").bounding_box()
     check("ADD: text first, tick box after it", lb["x"] + lb["width"] <= ab["x"] + 1, (lb, ab))
     check("ADD box not right next to +", ab["x"] - (plus["x"] + plus["width"]) > 40 or abs(ab["y"] - plus["y"]) > 30, (plus, ab))
+    # the words hug the tick box (Steve, 13 Oct evening: "closer to the tick box")
+    tx = pg.evaluate("() => { const l = document.querySelector('#w-add label'), r = document.createRange(); r.selectNodeContents(l); const t = r.getBoundingClientRect(), b = document.getElementById('f-add').getBoundingClientRect(); return [Math.round(b.left - t.right), getComputedStyle(l).textAlign]; }")
+    check("ADD words sit right by the tick box", 0 <= tx[0] <= 20 and tx[1] == "right", tx)
     ctx.close()
     # ---------- safe areas (iPhone 16 Pro on its side: Dynamic Island 62px, home bar 21px) ----------
     SAFE = ":root{--sal:62px !important;--sar:62px !important;--sab:21px !important}"
