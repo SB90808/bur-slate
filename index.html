@@ -171,8 +171,9 @@
   .half { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
   .text { font-family: var(--font-slate); font-weight: 700; color: var(--slate-fg); text-align: center; line-height: 1.12;
           white-space: pre; letter-spacing: -0.005em; }
-  .stamp { position: absolute; right: 0; bottom: 0; font-family: var(--font-slate); font-weight: 700; color: var(--muted);
-           white-space: nowrap; pointer-events: none; }   /* witcam date: for the eye only — not in the line, not in the QR (13 Oct 2026) */
+  .half.words { flex-direction: column; }      /* the text half stacks the line and, under its last line, the date stamp */
+  .stamp { font-family: var(--font-slate); font-weight: 700; color: var(--muted); text-align: center; line-height: 1;
+           white-space: nowrap; pointer-events: none; }   /* witcam date: centred under the TK line, for the eye only — not in the line, not in the QR (13 Oct 2026) */
   .qrbox { background: var(--qr-paper); display: flex; align-items: center; justify-content: center; }
   .qrbox canvas { display: block; image-rendering: pixelated; }
 </style>
@@ -266,7 +267,7 @@
   </section>
 
   <section class="stage" id="stage" hidden aria-label="Slate">
-    <div class="half"><div class="text" id="slateText"></div><div class="stamp" id="stamp" hidden></div></div>
+    <div class="half words"><div class="text" id="slateText"></div><div class="stamp" id="stamp" hidden></div></div>
     <div class="half" id="qrHalf"><div class="qrbox" id="qrBox"><canvas id="qr" aria-label="QR code of the slate line"></canvas></div></div>
   </section>
 </div>
@@ -478,11 +479,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const tb = $("slateText").parentElement.getBoundingClientRect();
     const boxW = tb.width, boxH = tb.height;
     const pad = Math.min(boxW, boxH) * 0.07;
-    // the witcam date stamp sits in the bottom-right corner, a quarter the height of the line's type: the line keeps clear of it
-    const stampEl = $("stamp"), stampH = shown.stamp ? Math.max(14, Math.min(boxW, boxH) * 0.085) : 0;
-    const best = layout(shown.line, boxW - pad * 2, boxH - pad * 2 - stampH);
+    // the witcam date stamp sits centred under the line's last row (the TK line), a small grey mark; the line leaves it room
+    const stampEl = $("stamp"), stampH = shown.stamp ? Math.max(14, Math.min(boxW, boxH) * 0.085) : 0, stampGap = stampH * 0.5;
+    const best = layout(shown.line, boxW - pad * 2, boxH - pad * 2 - (stampH ? stampH + stampGap : 0));
     stampEl.hidden = !shown.stamp; stampEl.textContent = shown.stamp || "";
-    stampEl.style.fontSize = stampH + "px"; stampEl.style.right = pad + "px"; stampEl.style.bottom = (pad * 0.6) + "px";
+    stampEl.style.fontSize = stampH + "px"; stampEl.style.marginTop = stampGap + "px";
     // one span per line, so the take's line can be found for the swipe
     const st2 = $("slateText"); st2.textContent = "";
     const tkLine = shown.take ? best.lines.map(l => /\bTK\d+\b/.test(l)).lastIndexOf(true) : -1;
@@ -829,7 +830,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-222052)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261013-222723)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
