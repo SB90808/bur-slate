@@ -119,7 +119,7 @@
   .field input::placeholder { color: var(--muted); font-weight: 400; text-transform: none; opacity: 1; }
   .step { display: flex; gap: calc(6px * var(--u)); min-width: 0; }
   .step input { flex: 1 1 0; width: auto; text-align: center; font-variant-numeric: tabular-nums; }
-  .step input#f-slate { text-align: left; }
+  .field.centred label { text-align: center; padding-left: 0; }        /* Slate, Pos and Take: the title centred over the field, the value centred in it (Steve, 14 Oct 2026) */
   .step button:disabled { opacity: 0.35; cursor: default; }
   /* portrait: − slate + needs the room, so the type box gives way (Steve, 14 Oct 2026, "these notes are for portrait view"); on its side there is room for both */
   .fields:not(.landscape) .pair.slate { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }
@@ -194,7 +194,7 @@
     <div class="fields" id="fields">
       <!-- SLATE -->
       <div class="pair slate" data-for="slate">
-        <div class="field"><label for="f-slate">Slate</label>
+        <div class="field centred"><label for="f-slate">Slate</label>
           <div class="step"><button type="button" id="slate-down" aria-label="Slate letter down" title="Previous setup letter (83B → 83A); never below the bare number">−</button>
             <input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done">
             <button type="button" id="slate-up" aria-label="Slate letter up" title="Next setup letter (83A → 83B)">+</button></div></div>
@@ -236,7 +236,7 @@
       <!-- shared by both -->
       <div class="field wide" id="w-spec"><label for="f-spec" id="l-spec">Specific</label>
         <input autocomplete="off" id="f-spec" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
-      <div class="field" id="w-pos"><label for="f-pos" id="l-pos">Pos</label>
+      <div class="field centred" id="w-pos"><label for="f-pos" id="l-pos">Pos</label>
         <div class="step"><button type="button" data-step="f-pos" data-d="-1" aria-label="Position down">−</button>
           <input autocomplete="off" id="f-pos" type="text" inputmode="numeric" value="1" enterkeyhint="done">
           <button type="button" data-step="f-pos" data-d="1" aria-label="Position up">+</button></div></div>
@@ -250,7 +250,7 @@
         <div class="field" id="w-date"><label for="f-date">Date <span class="opt">(yymmdd)</span></label>
           <input autocomplete="off" id="f-date" type="text" inputmode="numeric" maxlength="6" placeholder="261013" enterkeyhint="done"></div>
       </div>
-      <div class="field wide" id="w-take"><label for="f-take">Take</label>
+      <div class="field wide centred" id="w-take"><label for="f-take">Take</label>
         <div class="step"><button type="button" data-step="f-take" data-d="-1" aria-label="Take down">−</button>
           <input autocomplete="off" id="f-take" type="text" inputmode="numeric" value="1" enterkeyhint="done">
           <button type="button" data-step="f-take" data-d="1" aria-label="Take up">+</button></div></div>
