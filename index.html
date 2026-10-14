@@ -128,12 +128,18 @@
              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .field input[type="text"] { text-transform: uppercase; }
   .field input::placeholder { color: var(--muted); font-weight: 400; text-transform: none; opacity: 1; }
+  #f-slate2::placeholder { font-size: max(14px, calc(12px * var(--u))); }   /* the hint sentence, smaller than typed text, so it shows in full (14 Oct 2026) */
   .step { display: flex; gap: calc(6px * var(--u)); min-width: 0; }
   .step input { flex: 1 1 0; width: auto; text-align: center; font-variant-numeric: tabular-nums; }
   .field.centred label { text-align: center; padding-left: 0; }        /* Slate, Pos and Take: the title centred over the field, the value centred in it (14 Oct 2026) */
   .step button:disabled { opacity: 0.35; cursor: default; }
   /* portrait: − slate + needs the room, so the type box gives way (14 Oct 2026, "these notes are for portrait view"); on its side there is room for both */
   .fields:not(.landscape) .pair.slate { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }
+  /* Pos and Positions in folder: plain fields — except HDRI in portrait, where they share a row split like Slate | Type: the − 1 + stretches,
+     the drop-down is the Type box's width and its title may take two lines (14 Oct 2026) */
+  .pair.pos { display: contents; }
+  .fields:not(.landscape) .pair.pos.both { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); align-items: end; }
+  .fields:not(.landscape) .pair.pos.both #w-npos label { white-space: normal; line-height: 1.2; text-overflow: clip; }
   .step button { flex: none; width: calc(46px * var(--u)); font: 400 calc(22px * var(--u)) var(--font-ui); color: var(--ui-fg); background: var(--field);
                  border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); cursor: pointer; }
   /* ADD tick box: the same size as the + / − buttons, so it is easy to hit */
@@ -248,12 +254,14 @@
       <!-- shared by both -->
       <div class="field wide" id="w-spec"><label for="f-spec" id="l-spec">Specific</label>
         <input autocomplete="off" id="f-spec" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
+      <div class="pair pos" id="w-posrow">
       <div class="field centred" id="w-pos"><label for="f-pos" id="l-pos">Pos</label>
         <div class="step"><button type="button" data-step="f-pos" data-d="-1" aria-label="Position down">−</button>
           <input autocomplete="off" id="f-pos" type="text" inputmode="numeric" value="1" enterkeyhint="done">
           <button type="button" data-step="f-pos" data-d="1" aria-label="Position up">+</button></div></div>
       <div class="field" id="w-npos"><label for="f-npos">Positions in folder</label>
         <select id="f-npos"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
+      </div>
       <div class="field check" id="w-add"><label for="f-add">ADD (more ref, taken later)</label><input autocomplete="off" id="f-add" type="checkbox"></div>
       <!-- witcams: Focal | Date side by side, the take's − 1 + across the width under them (13 Oct 2026) -->
       <div class="pair" id="w-fd">
@@ -358,7 +366,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const k = cfgKey();
     if (k !== specKey) { if (specKey) { specs[specKey] = $("f-spec").value; save(); } $("f-spec").value = specs[k] || ""; specKey = k; }
     show("w-spec", spec); $("l-spec").textContent = specReq ? "Specific" : "Specific (optional)";
-    show("w-pos", pos); $("l-pos").textContent = posLabel;
+    show("w-pos", pos); $("l-pos").textContent = posLabel; $("w-posrow").classList.toggle("both", pos && npos);
     show("w-npos", npos); show("w-add", add); show("w-focal", focal); show("w-take", take);
     show("w-date", take); show("w-fd", focal || take);                     // every witcam slate carries the date beside the focal (13 Oct 2026)
     if (take && !$("f-date").value) $("f-date").value = today();
@@ -607,6 +615,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (f.scrollWidth > f.clientWidth + 1) return false;                                        // nothing wider than the screen
     if ([...f.querySelectorAll("select")].some(x => x.offsetParent && !selectFits(x))) return false;   // the chosen word always shows in full ("Te…")
     if ($("f-slate").offsetParent && !slateFits()) return false;                                    // five wide characters ("101MM") always show in full
+    if ($("f-slate2").offsetParent && !hintFits()) return false;                                    // the + Slates hint sentence shows in full
     const usable = !lockedCols || cols === 1 || (cw - gap * (cols - 1)) / cols >= 145 * u;
     return usable && f.scrollHeight <= f.clientHeight + 1;
   }
@@ -635,6 +644,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const el = $("f-slate"), cs = getComputedStyle(el);
     measureSel.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
     return measureSel.measureText("101MM").width * 1.12 + 6 <= el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // inputs draw text a little wider than the canvas measures
+  }
+  function hintFits() {
+    const el = $("f-slate2"), cs = getComputedStyle(el), u = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--u")) || 1;
+    measureSel.font = `400 ${Math.max(14, 12 * u)}px ${cs.fontFamily}`;
+    return measureSel.measureText(el.placeholder).width * 1.05 + 4 <= el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   }
   function search(lo, hi) {
     for (let i = 0; i < 10 && hi - lo > 0.01; i++) { const mid = (lo + hi) / 2; if (setU(mid)) lo = mid; else hi = mid; }
@@ -859,7 +873,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-174205)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-224348)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>

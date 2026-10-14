@@ -23,6 +23,15 @@ with sync_playwright() as p:
     check("Opens in Slate mode", pg.get_attribute("#mode-slate", "aria-pressed") == "true")
     check("First install: Ref, empty slate box, no slate example", pg.input_value("#f-type") == "REF" and pg.input_value("#f-slate") == "" and not pg.get_attribute("#f-slate", "placeholder"))
     check("+ Slates: no example, the hint sentence in the box", pg.get_attribute("#f-slate2", "placeholder") == "Shared capture, separate slates by a space" and pg.text_content("label[for=f-slate2]").strip() == "+ Slates")
+    HINT = "() => { const e = document.getElementById('f-slate2'), cs = getComputedStyle(e), u = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--u')), c = document.createElement('canvas').getContext('2d'); c.font = '400 ' + Math.max(14, 12 * u) + 'px ' + cs.fontFamily; return c.measureText(e.placeholder).width * 1.05 + 4 <= e.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); }"
+    fits = {}
+    for t in ["INSTA", "REF"]:
+        pg.select_option("#f-type", t); time.sleep(0.15); fits[t] = pg.evaluate(HINT)
+    check("+ Slates hint shows in full on Insta360 and Ref (portrait)", all(fits.values()), fits)
+    pg.select_option("#f-type", "HDRI"); time.sleep(0.15)
+    hd = pg.evaluate("() => { const np = document.getElementById('w-npos').getBoundingClientRect(), ty = document.getElementById('f-type').getBoundingClientRect(), po = document.getElementById('w-pos').getBoundingClientRect(), st = document.querySelector('.pair.slate .step').getBoundingClientRect(), lb = document.querySelector('#w-npos label'); return [Math.abs(np.width - ty.width) < 2, Math.abs(po.width - st.width) < 2, Math.abs(po.top + po.height - (np.top + np.height)) < 2, lb.scrollWidth <= lb.clientWidth + 1, Math.abs(np.left - ty.left) < 2]; }")
+    check("HDRI: Positions in folder the Type box's width, under it; Pos stretches like the slate; title fits; bottoms level", all(hd), hd)
+    pg.select_option("#f-type", "REF"); time.sleep(0.1)
     # no POS +1 & Show anywhere: Show fills the row for every type without a take (Steve, 13 Oct evening)
     setv(pg, "f-slate", "83a"); full = {}
     for t in ["HDRI", "INSTA", "REF", "VB", "PHOTOG", "GSPLAT"]:
