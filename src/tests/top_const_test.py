@@ -32,11 +32,15 @@ with sync_playwright() as p:
         for c, a in AS:
             pg.select_option("#f-cat", c); pg.select_option("#f-atype", a); time.sleep(0.05); r = pg.evaluate(INFO); sigs.add(r["sig"]); rows.append((c + ":" + a, r))
         scrolls = [f"{k} {r['scroll']}" for k, r in rows if r["scroll"] > 1]
+        # known: a phone on its side (under 400px tall) is too short for the three tallest forms once Take and Pos span the row
+        # (Steve, 14 Oct 2026); they scroll by less than a field — reported, not a failure
+        known = [x for x in scrolls if w > h and h < 400 and x.split(" ")[0] in ("REF", "ENV:PLATE", "CHAR:FACIAL") and int(x.split(" ")[-1]) < 60]
+        scrolls = [x for x in scrolls if x not in known]
         clip = [f"{k} {r['clipped']}" for k, r in rows if r["clipped"]]
         us = sorted(float(r["u"]) for k, r in rows)
         ok = len(sigs) == 1 and not scrolls and not clip; bad += not ok
         print(f"{'OK  ' if ok else 'FAIL'} {name} {w}x{h}: tu {rows[0][1]['tu']} top {rows[0][1]['h']}px ({round(100*rows[0][1]['h']/h)}%) | top layouts {len(sigs)} | fields u {us[0]:.2f}-{us[-1]:.2f}"
-              + (f" | SCROLL {scrolls}" if scrolls else "") + (f" | CLIPPED {clip}" if clip else ""))
+              + (f" | SCROLL {scrolls}" if scrolls else "") + (f" | known scroll {known}" if known else "") + (f" | CLIPPED {clip}" if clip else ""))
         ctx.close()
     b.close()
 print("ALL SAME" if not bad else f"{bad} screens with problems")

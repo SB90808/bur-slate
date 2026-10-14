@@ -22,16 +22,18 @@ with sync_playwright() as p:
     pg = ctx.new_page(); errs = []; pg.on("pageerror", lambda e: errs.append(str(e))); pg.goto(F); time.sleep(0.8)
     check("Opens in Slate mode", pg.get_attribute("#mode-slate", "aria-pressed") == "true")
     check("First install: Ref, empty slate box, no slate example", pg.input_value("#f-type") == "REF" and pg.input_value("#f-slate") == "" and not pg.get_attribute("#f-slate", "placeholder"))
-    check("+ Slates keeps its example", pg.get_attribute("#f-slate2", "placeholder") == "40A 40B 40C")
+    check("+ Slates: no example, the hint sentence in the box", pg.get_attribute("#f-slate2", "placeholder") == "Shared capture, separate slates by a space" and pg.text_content("label[for=f-slate2]").strip() == "+ Slates")
     # no POS +1 & Show anywhere: Show fills the row for every type without a take (Steve, 13 Oct evening)
     setv(pg, "f-slate", "83a"); full = {}
     for t in ["HDRI", "INSTA", "REF", "VB", "PHOTOG", "GSPLAT"]:
         pg.select_option("#f-type", t); time.sleep(0.1)
         if vis(pg, "w-spec"): setv(pg, "f-spec", "x"); time.sleep(0.1)
-        full[t] = pg.evaluate("() => { const b = document.getElementById('bump'), s = document.getElementById('show').getBoundingClientRect(), a = document.getElementById('acts').getBoundingClientRect(); return b.hidden && Math.abs(s.width - a.width) < 2; }")
+        full[t] = pg.evaluate("() => { const s = document.getElementById('show').getBoundingClientRect(), a = document.getElementById('acts').getBoundingClientRect(); return !document.getElementById('bump') && Math.abs(s.width - a.width) < 2; }")
         if vis(pg, "w-spec"): setv(pg, "f-spec", "")
     check("No POS +1; Slate stretches the width (HDRI, Insta360, Ref, VB, Photog, Gsplat)", all(full.values()), full)
-    check("The button says Slate, the witcam +1 says TK +1 & Slate", pg.text_content("#show").strip() == "Slate" and pg.text_content("#bump").strip() == "TK +1 & Slate")
+    pg.select_option("#f-type", "WITNESS"); time.sleep(0.1)
+    wit = pg.evaluate("() => { const s = document.getElementById('show').getBoundingClientRect(), a = document.getElementById('acts').getBoundingClientRect(); return Math.abs(s.width - a.width) < 2; }")
+    check("The button says Slate and fills the row on witcams too (no TK +1 button)", pg.text_content("#show").strip() == "Slate" and wit and not pg.query_selector("#bump"))
     # slate − / + (Steve, 14 Oct 2026): step the setup letter; never below the bare number; off for a slate with no number
     pg.select_option("#f-type", "REF"); setv(pg, "f-slate", ""); time.sleep(0.1)
     check("Slate − / +: both off with no slate", pg.is_disabled("#slate-up") and pg.is_disabled("#slate-down"))
@@ -156,7 +158,7 @@ with sync_playwright() as p:
     check("Double-tap on the text does not leave the slate", not pg.eval_on_selector("#stage", "e => e.hidden"))
     back(pg)
     check("Double-tap the QR goes back, no text box opens", pg.eval_on_selector("#stage", "e => e.hidden") and pg.evaluate("document.activeElement === document.body"))
-    pg.tap("#bump"); time.sleep(0.6); check("TK +1 & Show", qr(pg, "bump") == "BUR:83A / 50MM / TK2"); back(pg)
+    setv(pg, "f-take", "2"); pg.tap("#show"); time.sleep(0.6); check("Take 2 shows", qr(pg, "bump") == "BUR:83A / 50MM / TK2"); back(pg); setv(pg, "f-take", "1")
     pg.tap("#dnu"); time.sleep(0.5)
     check("DO NOT USE: text only", pg.eval_on_selector("#qrHalf", "e => e.hidden") and pg.text_content("#slateText").replace("\n", " ") == "DO NOT USE"); back(pg)
     # assets

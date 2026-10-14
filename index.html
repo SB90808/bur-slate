@@ -108,9 +108,8 @@
   .field.wide { grid-column: 1 / -1; }                 /* specific, location, names: the full width, every layout */
   .pair { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: calc(12px * var(--u)); }
   .pair .both { grid-column: 1 / -1; }
-  /* a phone on its side has room across but not down: Focal · Date · Take share one row (the pair dissolves, the take is a plain field) */
-  .fields.landscape #w-fd { display: contents; }
-  .fields.landscape #w-take { grid-column: auto; }
+  /* on its side too, Take and Pos stretch across the screen (14 Oct 2026: "currently on landscape it's bunched to the left") */
+  .fields.landscape #w-pos, .fields.landscape #w-add { grid-column: 1 / -1; }   /* ADD follows: its words and box at the right edge under the + */
   .field label { font-size: calc(13px * var(--u)); color: var(--muted); padding-left: calc(2px * var(--u));
                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .field input, .field select { font: 600 max(16px, calc(17px * var(--u))) var(--font-ui); text-overflow: ellipsis; color: var(--ui-fg); background: var(--field);
@@ -194,7 +193,6 @@
       </div>
       <div class="line" id="preview" aria-live="polite"></div>
       <div class="acts" id="acts">
-        <button type="button" class="btn" id="bump" hidden>TK +1 &amp; Slate</button>
         <button type="submit" class="btn go" id="show">Slate</button>
       </div>
       <div class="tools">
@@ -218,8 +216,8 @@
             <option value="VB">VB</option><option value="VB PMP">VB PMP</option><option value="PHOTOG" data-short="Photog">Photogrammetry</option>
             <option value="TEXTURES">Textures</option><option value="GSPLAT" data-short="Gsplat">GaussianSplat</option><option value="WITNESS">Witness</option>
           </select><span class="selface" aria-hidden="true"></span></div></div>
-        <div class="field both" id="w-slate2"><label for="f-slate2">+ Slates <span class="opt">(shared capture)</span></label>
-          <input autocomplete="off" id="f-slate2" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="40A 40B 40C" enterkeyhint="done"></div>
+        <div class="field both" id="w-slate2"><label for="f-slate2">+ Slates</label>
+          <input autocomplete="off" id="f-slate2" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="Shared capture, separate slates by a space" enterkeyhint="done"></div>
       </div>
 
       <!-- ASSET -->
@@ -382,7 +380,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (mode === "slate") {
       const s1 = up($("f-slate").value), s2 = $("w-slate2").hidden ? "" : up($("f-slate2").value);
       if (!s1) missing = "type the slate";
-      // + Slate: every word is another slate ("40A 40B 40C" = three more), each filed a plain copy (13 Oct 2026)
+      // + Slates: every word is another slate sharing the capture, each filed a plain copy (13 Oct 2026); no example in the box (14 Oct)
       const extra = s2.split(/[\s,+&]+/).filter(x => x && x !== s1);
       const slate = [s1, ...extra.filter((x, i) => extra.indexOf(x) === i)].filter(Boolean).join(" + ");
       const t = $("f-type").value;
@@ -436,9 +434,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     else p.append(line);                                                 // just the line — no "text + QR" / "text only" tag (13 Oct 2026)
     fitLine();
     $("show").disabled = !!missing;
-    // only the witcam slates have a +1 (TK +1 & Slate); POS +1 is gone, Slate fills the row; the word is Slate, not Show (13 Oct 2026)
-    $("bump").hidden = $("w-take").hidden || !!missing;
-    $("bump").textContent = "TK +1 & Slate";
+    // no +1 button on any form (14 Oct 2026): Slate fills the row everywhere; takes and positions step by swipe on the slate
   }
 
   // ---------- the slate screen ----------
@@ -651,7 +647,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const ed = $("editor"), land = ed.clientWidth > ed.clientHeight;
     $("top").classList.toggle("landscape", land); f.classList.toggle("landscape", land);
     // a phone on its side is short: let it go a little smaller before anything scrolls (typed text never under 16px)
-    uMin = land ? 0.75 : 0.8;                                            // (iPhone SE, Facial: the fixed top leaves a little less room)
+    uMin = land ? 0.7 : 0.8;                                             // on its side Take and Pos span the row, so the tallest forms may go a touch smaller (iPhone SE, Facial: the fixed top leaves a little less room)
     const sa = getComputedStyle($("stage"));                            // the safe insets (iPhone island side) count as a change of screen
     const screenKey = [ed.clientWidth, ed.clientHeight, sa.paddingLeft, sa.paddingRight, sa.paddingTop].join("|");
     if (screenKey !== topKey) { topKey = screenKey; tuNow = topSize(f, land); }
@@ -670,25 +666,23 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   const WITNESS_NOTE = "The camera is the folder the clip is sorted into — no camera on the board.";
   function witnessU(f) {
     const kept = [...f.querySelectorAll("[data-for], .field, #w-fd")].map(e => [e, e.hidden]);
-    const type = $("f-type"), oldType = type.value, note = $("note"), oldNote = note.textContent, bump = $("bump"), oldBump = [bump.hidden, bump.textContent];
+    const type = $("f-type"), oldType = type.value, note = $("note"), oldNote = note.textContent;
     f.querySelectorAll("[data-for]").forEach(e => { e.hidden = e.dataset.for !== "slate"; });
     ["w-slate2", "w-spec", "w-pos", "w-npos", "w-add"].forEach(id => { $(id).hidden = true; });
     $("w-fd").hidden = false; $("w-focal").hidden = false; $("w-date").hidden = false; $("w-take").hidden = false;
-    type.value = "WITNESS"; note.textContent = WITNESS_NOTE; bump.hidden = false; bump.textContent = "TK +1 & Slate";
+    type.value = "WITNESS"; note.textContent = WITNESS_NOTE;
     probing = true; let u;
     try { u = sizeTo(f); } finally {
       probing = false;
-      kept.forEach(([e, h]) => { e.hidden = h; }); type.value = oldType; note.textContent = oldNote; bump.hidden = oldBump[0]; bump.textContent = oldBump[1];
+      kept.forEach(([e, h]) => { e.hidden = h; }); type.value = oldType; note.textContent = oldNote;
     }
     return u;
   }
   function topSize(f, land) {
-    const uw = witnessU(f), bump = $("bump"), old = [bump.hidden, bump.textContent], ed = $("editor");
-    bump.hidden = false; bump.textContent = "TK +1 & Slate";
+    const uw = witnessU(f), ed = $("editor");
     const ok = x => { setTU(x); return topFits() && (!land || $("top").offsetHeight <= ed.clientHeight * 0.25); };
     let tu = uw;
     if (!ok(tu)) { let lo = 0.6, hi = uw; for (let i = 0; i < 12 && hi - lo > 0.005; i++) { const mid = (lo + hi) / 2; if (ok(mid)) lo = mid; else hi = mid; } tu = lo; }
-    bump.hidden = old[0]; bump.textContent = old[1];
     return tu;
   }
   function sizeTo(f) {
@@ -798,10 +792,6 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => {
     const id = b.dataset.step; $(id).value = Math.max(1, num(id) + (+b.dataset.d)); build();
   }));
-  $("bump").addEventListener("click", () => {
-    $("f-take").value = num("f-take") + 1;
-    const b = build(); if (!b.missing) goSlate(b);
-  });
   $("dnu").addEventListener("click", () => goSlate({ line: "DO NOT USE", textOnly: true, missing: "" }));
   // double-tap the QR code (its half of the screen) to go back; with no QR (HDRI, Insta360, DO NOT USE) double-tap anywhere
   // ---------- swipe the TK line (witcams) or the POS line (HDRI, Ref, VB, VB PMP, Photog, Gsplat): right to left = next, left to right = back ----------
@@ -869,7 +859,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-172322)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-174205)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
