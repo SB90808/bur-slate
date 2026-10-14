@@ -19,7 +19,7 @@ def tap(cdp, x, y):
     cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
 LINE = "() => document.getElementById('slateText').textContent.replace(/\\n/g, ' ')"
 def strip(pg):
-    return pg.evaluate("() => { const r = document.getElementById('tkline').getBoundingClientRect(), h = document.getElementById('slateText').parentElement.getBoundingClientRect(); return [h.left, h.right, r.top, r.bottom]; }")
+    return pg.evaluate("() => { const r = (document.getElementById('tkline') || document.getElementById('posline')).getBoundingClientRect(), h = document.getElementById('slateText').parentElement.getBoundingClientRect(); return [h.left, h.right, r.top, r.bottom]; }")
 def setup(pg, kind):
     if kind == "WITNESS":
         pg.click("#mode-slate"); pg.select_option("#f-type", "WITNESS"); pg.fill("#f-slate", "90"); pg.fill("#f-focal", "50")
@@ -65,13 +65,31 @@ with sync_playwright() as p:
             check(f"{dev} {kind}: double-tap QR goes back", pg.is_visible("#editor") and not pg.is_visible("#stage"))
             exp = "4" if kind == "WITNESS" else "1"
             check(f"{dev} {kind}: form shows the swiped take", pg.input_value("#f-take") == exp and f"TK{exp}" in pg.inner_text("#preview"), pg.input_value("#f-take"))
-        # no swipe where there is no take
-        pg.click("#mode-slate"); pg.select_option("#f-type", "REF"); pg.fill("#f-slate", "90"); pg.dispatch_event("#f-slate", "input"); time.sleep(0.2); pg.click("#show"); time.sleep(0.4)
-        l0 = pg.evaluate(LINE); r = pg.evaluate("() => document.getElementById('slateText').getBoundingClientRect()") 
+        # POS swipe (Steve, 14 Oct 2026): HDRI, Ref, VB, Photog, Gsplat — the POS line, or the last line when POS 1 is not written
+        for kind, spec, first, second in [("REF", "", "90 / REF", "90 / REF / POS 2"), ("HDRI", "", "90 / POS 1", "90 / POS 2"), ("PHOTOG", "statue", "90 / PHOTOG / STATUE", "90 / PHOTOG / STATUE POS 2")]:
+            pg.click("#mode-slate"); pg.select_option("#f-type", kind); pg.fill("#f-slate", "90"); pg.dispatch_event("#f-slate", "input")
+            if spec: pg.fill("#f-spec", spec); pg.dispatch_event("#f-spec", "input")
+            pg.fill("#f-pos", "1"); pg.dispatch_event("#f-pos", "input"); pg.locator("#f-pos").blur(); time.sleep(0.3); pg.click("#show"); time.sleep(0.4)
+            l0 = pg.evaluate(LINE); x0, x1, t, bt = strip(pg); y = (t + bt) / 2; cx = (x0 + x1) / 2; span = (x1 - x0) * 0.6
+            touch_swipe(pg, cdp, cx + span / 2, y, cx - span / 2, y + 6); l1 = pg.evaluate(LINE)
+            check(f"{dev} {kind}: swipe right to left -> POS 2", l0 == first and l1 == second, f"{l0!r} -> {l1!r}")
+            if kind != "HDRI": check(f"{dev} {kind}: QR follows", qr(pg, f"{dev[:4]}_{kind}_pos").endswith(second))
+            x0, x1, t, bt = strip(pg); y = (t + bt) / 2
+            touch_swipe(pg, cdp, cx - span / 2, y, cx + span / 2, y - 6); l2 = pg.evaluate(LINE)
+            check(f"{dev} {kind}: swipe left to right -> POS 1 (never below)", l2 == first, l2)
+            touch_swipe(pg, cdp, cx - span / 2, y, cx + span / 2, y); check(f"{dev} {kind}: never below POS 1", pg.evaluate(LINE) == first)
+            if kind == "HDRI":
+                tap(cdp, cx, y); time.sleep(0.12); tap(cdp, cx, y); time.sleep(0.8)       # text only: double-tap anywhere goes back
+            else:
+                qb = pg.locator("#qrHalf").bounding_box(); tap(cdp, qb["x"] + qb["width"] / 2, qb["y"] + qb["height"] / 2); time.sleep(0.12); tap(cdp, qb["x"] + qb["width"] / 2, qb["y"] + qb["height"] / 2); time.sleep(0.8)
+            check(f"{dev} {kind}: back on the form, Pos 1", pg.is_visible("#editor") and pg.input_value("#f-pos") == "1")
+            if spec: pg.fill("#f-spec", ""); pg.dispatch_event("#f-spec", "input")
+        # no swipe where there is neither take nor pos
+        pg.select_option("#f-type", "INSTA"); time.sleep(0.2); pg.click("#show"); time.sleep(0.4)
+        l0 = pg.evaluate(LINE); r = pg.evaluate("() => document.getElementById('slateText').getBoundingClientRect()")
         touch_swipe(pg, cdp, r["x"] + 10, r["y"] + r["height"] / 2, r["x"] + r["width"] - 10, r["y"] + r["height"] / 2)
-        check(f"{dev}: Ref has no swipe", pg.evaluate(LINE) == l0 and not pg.evaluate("() => !!document.getElementById('tkline')"), l0)
-        qb = pg.locator("#qrHalf").bounding_box(); qx, qy = qb["x"] + qb["width"] / 2, qb["y"] + qb["height"] / 2
-        tap(cdp, qx, qy); time.sleep(0.12); tap(cdp, qx, qy); time.sleep(0.8)
+        check(f"{dev}: Insta360 has no swipe", pg.evaluate(LINE) == l0 and not pg.evaluate("() => !!(document.getElementById('tkline') || document.getElementById('posline'))"), l0)
+        cx, cy = r["x"] + r["width"] / 2, r["y"] + r["height"] / 2; tap(cdp, cx, cy); time.sleep(0.12); tap(cdp, cx, cy); time.sleep(0.8)
         pg.click("#dnu"); time.sleep(0.4); r = pg.evaluate("() => document.getElementById('slateText').getBoundingClientRect()")
         touch_swipe(pg, cdp, r["x"] + 10, r["y"] + r["height"] / 2, r["x"] + r["width"] - 10, r["y"] + r["height"] / 2)
         check(f"{dev}: DO NOT USE has no swipe", pg.evaluate(LINE) == "DO NOT USE")

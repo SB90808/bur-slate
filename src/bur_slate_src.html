@@ -119,6 +119,9 @@
   .field input::placeholder { color: var(--muted); font-weight: 400; text-transform: none; opacity: 1; }
   .step { display: flex; gap: calc(6px * var(--u)); min-width: 0; }
   .step input { flex: 1 1 0; width: auto; text-align: center; font-variant-numeric: tabular-nums; }
+  .step input#f-slate { text-align: left; }
+  .step button.next { font: 600 calc(15px * var(--u)) var(--font-ui); }   /* next slate: shows the setup letter it goes to (B ›) */
+  .step button.next:disabled { opacity: 0.35; cursor: default; }
   .step button { flex: none; width: calc(46px * var(--u)); font: 400 calc(22px * var(--u)) var(--font-ui); color: var(--ui-fg); background: var(--field);
                  border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); cursor: pointer; }
   /* ADD tick box: the same size as the + / − buttons, so it is easy to hit */
@@ -191,7 +194,8 @@
       <!-- SLATE -->
       <div class="pair" data-for="slate">
         <div class="field"><label for="f-slate">Slate</label>
-          <input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done"></div>
+          <div class="step"><input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done">
+            <button type="button" id="next-slate" class="next" aria-label="Next slate" title="Next slate: the next setup letter (83A → 83B); positions and takes back to 1">›</button></div></div>
         <div class="field"><label for="f-type">Type</label>
           <div class="selwrap"><select id="f-type">
             <option value="HDRI">HDRI</option><option value="INSTA">Insta360</option><option value="REF" data-short="Ref">Reference Stills</option>
@@ -342,7 +346,7 @@
     show("w-date", take); show("w-fd", focal || take);                     // every witcam slate carries the date beside the focal (Steve, 13 Oct 2026)
     if (take && !$("f-date").value) $("f-date").value = today();
     $("note").textContent = note;
-    faceSelects();
+    faceSelects(); faceNext();
     build(); fit();
   }
 
@@ -397,7 +401,7 @@
     // and the QR are untouched (Steve, 13 Oct 2026); Facial carries its date in the line already
     const date = ($("f-date").value || "").replace(/\D/g, "");
     const stamp = (!$("w-take").hidden && !(mode === "asset" && $("f-atype").value === "FACIAL") && date.length === 6) ? date : "";
-    return { line, textOnly, missing, take: !$("w-take").hidden, stamp };      // take: Witness, ENV Plate, CHAR Facial — swipe the TK line
+    return { line, textOnly, missing, take: !$("w-take").hidden, pos: !$("w-pos").hidden, stamp };   // take: witcams swipe the TK line; pos: HDRI, Ref, VB, Photog, Gsplat swipe the POS line
   }
 
   function fitLine() {
@@ -469,8 +473,11 @@
     stampEl.style.fontSize = stampH + "px"; stampEl.style.marginTop = stampGap + "px";
     // one span per line, so the take's line can be found for the swipe
     const st2 = $("slateText"); st2.textContent = "";
-    const tkLine = shown.take ? best.lines.map(l => /\bTK\d+\b/.test(l)).lastIndexOf(true) : -1;
-    best.lines.forEach((l, i) => { if (i) st2.append("\n"); const sp = document.createElement("span"); sp.textContent = l; if (i === tkLine) sp.id = "tkline"; st2.append(sp); });
+    // the swipe line: the TK line on witcams; the POS line on positioned slates — or the last line when POS 1 is not written ("83A / REF")
+    let tkLine = -1, posLine = -1;
+    if (shown.take) tkLine = best.lines.map(l => /\bTK\d+\b/.test(l)).lastIndexOf(true);
+    else if (shown.pos) { posLine = best.lines.map(l => /\bPOS\s*\d/.test(l)).lastIndexOf(true); if (posLine < 0) posLine = best.lines.length - 1; }
+    best.lines.forEach((l, i) => { if (i) st2.append("\n"); const sp = document.createElement("span"); sp.textContent = l; if (i === tkLine) sp.id = "tkline"; if (i === posLine) sp.id = "posline"; st2.append(sp); });
     $("slateText").style.fontSize = Math.floor(best.size * 0.98) + "px";
     if (!solo) {
       const qb = $("qrHalf").getBoundingClientRect();
@@ -741,6 +748,28 @@
   $("mode-asset").addEventListener("click", () => { mode = "asset"; refreshFields(); });
   ["f-type", "f-cat", "f-atype", "f-npos", "f-add"].forEach(id => $(id).addEventListener("change", refreshFields));
   $("fields").addEventListener("input", () => { build(); save(); });   // remembered as you type
+  // ---------- next slate (Steve, 14 Oct 2026): one tap takes the slate to its next setup letter — 83 → 83A, 83A → 83B, 83Z → 83AA ----------
+  // Positions and takes go back to 1 (a new slate starts again); type, specific and + slates stay as they are.
+  function nextSlate(s) {
+    s = up(s); if (!s) return "";
+    const m = s.match(/^(.*?)([A-Z]*)$/), head = m[1], letters = m[2];
+    if (!letters) return head + "A";
+    let arr = letters.split(""), i = arr.length - 1;                     // bump the last letter, carrying Z → A
+    while (i >= 0) { if (arr[i] === "Z") { arr[i] = "A"; i--; } else { arr[i] = String.fromCharCode(arr[i].charCodeAt(0) + 1); break; } }
+    if (i < 0) arr.unshift("A");
+    return head + arr.join("");
+  }
+  function faceNext() {
+    const n = nextSlate($("f-slate").value), b = $("next-slate");
+    b.disabled = !n; b.textContent = n ? (n.match(/[A-Z]+$/) || [""])[0] + " ›" : "›";
+    b.setAttribute("aria-label", n ? "Next slate: " + n : "Next slate");
+  }
+  $("next-slate").addEventListener("click", () => {
+    const n = nextSlate($("f-slate").value); if (!n) return;
+    $("f-slate").value = n; $("f-pos").value = "1"; $("f-take").value = "1";
+    faceNext(); build(); save();
+  });
+  $("f-slate").addEventListener("input", faceNext);
   document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => {
     const id = b.dataset.step; $(id).value = Math.max(1, num(id) + (+b.dataset.d)); build();
   }));
@@ -750,11 +779,12 @@
   });
   $("dnu").addEventListener("click", () => goSlate({ line: "DO NOT USE", textOnly: true, missing: "" }));
   // double-tap the QR code (its half of the screen) to go back; with no QR (HDRI, Insta360, DO NOT USE) double-tap anywhere
-  // ---------- witcam slates: swipe the TK line — right to left = next take, left to right = take back (Steve, 13 Oct 2026) ----------
-  // The strip is the take's line across the whole text half, a little above and below it; QR and form follow.
+  // ---------- swipe the TK line (witcams) or the POS line (HDRI, Ref, VB, VB PMP, Photog, Gsplat): right to left = next, left to right = back ----------
+  // (Steve, 13 Oct 2026; POS added 14 Oct.) The strip is that line across the whole text half, a little above and below it; QR and form follow.
   let swipe = null;
+  const swipeField = () => shown && (shown.take ? "f-take" : shown.pos ? "f-pos" : null);
   function inTakeStrip(e) {
-    const tk = $("tkline"); if (!shown || !shown.take || !tk) return false;
+    const tk = $("tkline") || $("posline"); if (!swipeField() || !tk) return false;
     const half = $("slateText").parentElement.getBoundingClientRect(), r = tk.getBoundingClientRect(), pad = r.height * 0.35;
     return e.clientX >= half.left && e.clientX <= half.right && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
   }
@@ -767,9 +797,10 @@
     if (!s || s.id !== e.pointerId || Date.now() - s.t > 1000) return false;
     const dx = e.clientX - s.x, dy = e.clientY - s.y, half = $("slateText").parentElement.getBoundingClientRect();
     if (Math.abs(dx) < Math.max(40, half.width * 0.12) || Math.abs(dx) < Math.abs(dy) * 1.5) return false;
-    const take = Math.max(1, num("f-take") + (dx < 0 ? 1 : -1));        // like turning a page: drag the next take in from the right
-    if (take !== num("f-take")) {
-      $("f-take").value = take;
+    const id = swipeField(); if (!id) return false;
+    const next = Math.max(1, num(id) + (dx < 0 ? 1 : -1));              // like turning a page: drag the next take / position in from the right
+    if (next !== num(id)) {
+      $(id).value = next;
       const b = build(); if (!b.missing) { shown = b; renderSlate(); save(); }
     }
     return true;

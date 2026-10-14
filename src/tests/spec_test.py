@@ -32,6 +32,22 @@ with sync_playwright() as p:
         if vis(pg, "w-spec"): setv(pg, "f-spec", "")
     check("No POS +1; Slate stretches the width (HDRI, Insta360, Ref, VB, Photog, Gsplat)", all(full.values()), full)
     check("The button says Slate, the witcam +1 says TK +1 & Slate", pg.text_content("#show").strip() == "Slate" and pg.text_content("#bump").strip() == "TK +1 & Slate")
+    # next slate (Steve, 14 Oct 2026): one tap to the next setup letter; pos and take back to 1
+    pg.select_option("#f-type", "REF"); setv(pg, "f-slate", ""); time.sleep(0.1)
+    check("Next slate: disabled with no slate", pg.is_disabled("#next-slate"))
+    outs = []
+    for start in ["83", "83a", "83Z", "100", "7AZ"]:
+        setv(pg, "f-slate", start); time.sleep(0.05); face = pg.text_content("#next-slate").strip(); pg.tap("#next-slate"); time.sleep(0.1); outs.append((start, face, pg.input_value("#f-slate")))
+    check("Next slate: 83 -> 83A, 83A -> 83B, 83Z -> 83AA, 100 -> 100A, 7AZ -> 7BA (button shows the letter)",
+          [o[2] for o in outs] == ["83A", "83B", "83AA", "100A", "7BA"] and [o[1] for o in outs] == ["A ›", "B ›", "AA ›", "A ›", "BA ›"], outs)
+    setv(pg, "f-slate", "83A"); setv(pg, "f-pos", "4"); pg.select_option("#f-type", "WITNESS"); setv(pg, "f-take", "3"); pg.select_option("#f-type", "REF"); time.sleep(0.1)
+    pg.tap("#next-slate"); time.sleep(0.1)
+    check("Next slate resets pos and take to 1, keeps the type", pg.input_value("#f-slate") == "83B" and pg.input_value("#f-pos") == "1" and pg.input_value("#f-take") == "1" and pg.input_value("#f-type") == "REF" and line(pg) == "83B / REF", line(pg))
+    nb = pg.evaluate("() => { const b = document.getElementById('next-slate').getBoundingClientRect(), p = document.querySelector('[data-step=\"f-pos\"][data-d=\"1\"]').getBoundingClientRect(), s = document.getElementById('f-slate').getBoundingClientRect(); return Math.abs(b.width - p.width) < 2 && b.left >= s.right - 1 && Math.abs(b.top - s.top) < 2; }")
+    check("Next slate button sits beside the slate box, the size of a + button", nb)
+    pg.reload(); time.sleep(0.5)
+    check("Next slate survives reload (83B remembered)", pg.input_value("#f-slate") == "83B")
+    setv(pg, "f-slate", "")
     pg.select_option("#f-type", "REF"); setv(pg, "f-spec", ""); setv(pg, "f-slate", "")
     setv(pg, "f-slate", "83a"); pg.select_option("#f-type", "REF"); time.sleep(0.1)
     centred = pg.evaluate("() => { const b = document.getElementById('preview').getBoundingClientRect(), t = document.querySelector('#preview .lt').getBoundingClientRect(); return Math.abs((t.left + t.right) / 2 - (b.left + b.right) / 2) < 2 && t.width < b.width - 20; }")
