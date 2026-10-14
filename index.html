@@ -132,8 +132,9 @@
   .step { display: flex; gap: calc(6px * var(--u)); min-width: 0; }
   .step input { flex: 1 1 0; width: auto; text-align: center; font-variant-numeric: tabular-nums; }
   .step input#f-slate { text-align: left; }
-  .step button.next { font: 600 calc(15px * var(--u)) var(--font-ui); }   /* next slate: shows the setup letter it goes to (B ›) */
-  .step button.next:disabled { opacity: 0.35; cursor: default; }
+  .step button:disabled { opacity: 0.35; cursor: default; }
+  /* portrait: − slate + needs the room, so the type box gives way (14 Oct 2026, "these notes are for portrait view"); on its side there is room for both */
+  .fields:not(.landscape) .pair.slate { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); }
   .step button { flex: none; width: calc(46px * var(--u)); font: 400 calc(22px * var(--u)) var(--font-ui); color: var(--ui-fg); background: var(--field);
                  border: 0.5px solid var(--line); border-radius: calc(10px * var(--u)); cursor: pointer; }
   /* ADD tick box: the same size as the + / − buttons, so it is easy to hit */
@@ -206,10 +207,11 @@
     <div class="toast" id="toast" role="status" hidden><span id="toast-text">Cleared</span><button type="button" id="toast-undo">Undo</button></div>
     <div class="fields" id="fields">
       <!-- SLATE -->
-      <div class="pair" data-for="slate">
+      <div class="pair slate" data-for="slate">
         <div class="field"><label for="f-slate">Slate</label>
-          <div class="step"><input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done">
-            <button type="button" id="next-slate" class="next" aria-label="Next slate" title="Next slate: the next setup letter (83A → 83B); positions and takes back to 1">›</button></div></div>
+          <div class="step"><button type="button" id="slate-down" aria-label="Slate letter down" title="Previous setup letter (83B → 83A); never below the bare number">−</button>
+            <input autocomplete="off" id="f-slate" type="text" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done">
+            <button type="button" id="slate-up" aria-label="Slate letter up" title="Next setup letter (83A → 83B)">+</button></div></div>
         <div class="field"><label for="f-type">Type</label>
           <div class="selwrap"><select id="f-type">
             <option value="HDRI">HDRI</option><option value="INSTA">Insta360</option><option value="REF" data-short="Ref">Reference Stills</option>
@@ -363,7 +365,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     show("w-date", take); show("w-fd", focal || take);                     // every witcam slate carries the date beside the focal (13 Oct 2026)
     if (take && !$("f-date").value) $("f-date").value = today();
     $("note").textContent = note;
-    faceSelects(); faceNext();
+    faceSelects(); faceSlateSteps();
     build(); fit();
   }
 
@@ -608,6 +610,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     if (probing && !topFits()) return false;
     if (f.scrollWidth > f.clientWidth + 1) return false;                                        // nothing wider than the screen
     if ([...f.querySelectorAll("select")].some(x => x.offsetParent && !selectFits(x))) return false;   // the chosen word always shows in full ("Te…")
+    if ($("f-slate").offsetParent && !slateFits()) return false;                                    // five wide characters ("101MM") always show in full
     const usable = !lockedCols || cols === 1 || (cw - gap * (cols - 1)) / cols >= 145 * u;
     return usable && f.scrollHeight <= f.clientHeight + 1;
   }
@@ -631,6 +634,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const cs = getComputedStyle(sel), o = sel.options[sel.selectedIndex];
     measureSel.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
     return !o || measureSel.measureText(shortWord(o)).width * 1.05 + 2 <= sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // the closed box's word; with a margin: phones round text wider
+  }
+  function slateFits() {
+    const el = $("f-slate"), cs = getComputedStyle(el);
+    measureSel.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return measureSel.measureText("101MM").width * 1.12 + 6 <= el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);   // inputs draw text a little wider than the canvas measures
   }
   function search(lo, hi) {
     for (let i = 0; i < 10 && hi - lo > 0.01; i++) { const mid = (lo + hi) / 2; if (setU(mid)) lo = mid; else hi = mid; }
@@ -765,28 +773,28 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   $("mode-asset").addEventListener("click", () => { mode = "asset"; refreshFields(); });
   ["f-type", "f-cat", "f-atype", "f-npos", "f-add"].forEach(id => $(id).addEventListener("change", refreshFields));
   $("fields").addEventListener("input", () => { build(); save(); });   // remembered as you type
-  // ---------- next slate (14 Oct 2026): one tap takes the slate to its next setup letter — 83 → 83A, 83A → 83B, 83Z → 83AA ----------
-  // Positions and takes go back to 1 (a new slate starts again); type, specific and + slates stay as they are.
-  function nextSlate(s) {
-    s = up(s); if (!s) return "";
-    const m = s.match(/^(.*?)([A-Z]*)$/), head = m[1], letters = m[2];
-    if (!letters) return head + "A";
-    let arr = letters.split(""), i = arr.length - 1;                     // bump the last letter, carrying Z → A
-    while (i >= 0) { if (arr[i] === "Z") { arr[i] = "A"; i--; } else { arr[i] = String.fromCharCode(arr[i].charCodeAt(0) + 1); break; } }
-    if (i < 0) arr.unshift("A");
-    return head + arr.join("");
+  // ---------- slate − / + (14 Oct 2026): step the setup letter — 83 → 83A → 83B … 83Z → 83AA, and back down, never below the bare number ----------
+  // The letters count like spreadsheet columns (A=1 … Z=26, AA=27). A slate with no number in it ("VFX SLATE") has nothing to step: both buttons off.
+  // Stepping either way is a new slate: positions and takes go back to 1; type, specific and + slates stay as they are.
+  const lettersToN = l => l.split("").reduce((n, c) => n * 26 + (c.charCodeAt(0) - 64), 0);
+  const nToLetters = n => { let out = ""; while (n > 0) { n--; out = String.fromCharCode(65 + n % 26) + out; n = Math.floor(n / 26); } return out; };
+  function slateParts(s) {                                               // "83A" → ["83", "A"]; "VFX SLATE" → null (no number)
+    s = up(s); const m = s.match(/^(.*\d)([A-Z]*)$/); return m ? [m[1], m[2]] : null;
   }
-  function faceNext() {
-    const n = nextSlate($("f-slate").value), b = $("next-slate");
-    b.disabled = !n; b.textContent = n ? (n.match(/[A-Z]+$/) || [""])[0] + " ›" : "›";
-    b.setAttribute("aria-label", n ? "Next slate: " + n : "Next slate");
+  function stepSlate(s, d) {
+    const p = slateParts(s); if (!p) return null;
+    const n = lettersToN(p[1]) + d; return n < 0 ? null : p[0] + nToLetters(n);
   }
-  $("next-slate").addEventListener("click", () => {
-    const n = nextSlate($("f-slate").value); if (!n) return;
+  function faceSlateSteps() {
+    const v = $("f-slate").value;
+    $("slate-up").disabled = stepSlate(v, 1) === null; $("slate-down").disabled = stepSlate(v, -1) === null;
+  }
+  [["slate-up", 1], ["slate-down", -1]].forEach(([id, d]) => $(id).addEventListener("click", () => {
+    const n = stepSlate($("f-slate").value, d); if (n === null) return;
     $("f-slate").value = n; $("f-pos").value = "1"; $("f-take").value = "1";
-    faceNext(); build(); save();
-  });
-  $("f-slate").addEventListener("input", faceNext);
+    faceSlateSteps(); build(); save();
+  }));
+  $("f-slate").addEventListener("input", faceSlateSteps);
   document.querySelectorAll("[data-step]").forEach(b => b.addEventListener("click", () => {
     const id = b.dataset.step; $(id).value = Math.max(1, num(id) + (+b.dataset.d)); build();
   }));
@@ -861,7 +869,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-164537)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-171058)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>

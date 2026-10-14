@@ -17,13 +17,15 @@ CHK = """() => { const W = document.documentElement.clientWidth, bad = [];
     const o = x.options[x.selectedIndex], word = o.dataset.short || o.text;   // the closed box shows the short word; the open list the full name
     if (cv.measureText(word).width * 1.05 + 2 > x.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) bad.push(x.id + ' word cut'); });
   document.querySelectorAll('.selface').forEach(f => { if (f.offsetParent && f.scrollWidth > f.clientWidth + 1) bad.push('face cut ' + f.textContent); });
+  const sl = document.getElementById('f-slate'); if (sl.offsetParent) { const cs = getComputedStyle(sl); cv.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    if (cv.measureText('101MM').width * 1.05 + 2 > sl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) bad.push('slate 5 chars cut'); }
   const f = document.getElementById('fields'); if (f.scrollHeight > f.clientHeight + 1) bad.push('scroll ' + (f.scrollHeight - f.clientHeight));
   return bad; }"""
 with sync_playwright() as p:
     b = p.chromium.launch(); total = 0; probs = 0
     for name, w, h in DEV:
         ctx = b.new_context(viewport={"width": w, "height": h}, device_scale_factor=2)   # desktop mode: no auto zoom-out, so overflow shows
-        pg = ctx.new_page(); pg.goto(F); time.sleep(0.5); pg.fill("#f-slate", "83A"); pg.dispatch_event("#f-slate", "input")
+        pg = ctx.new_page(); pg.goto(F); time.sleep(0.5); pg.fill("#f-slate", "101MM"); pg.dispatch_event("#f-slate", "input")
         out = []
         for t in SL:
             pg.select_option("#f-type", t); time.sleep(0.08); r = pg.evaluate(CHK); total += 1
