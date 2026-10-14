@@ -108,8 +108,10 @@
   .field.wide { grid-column: 1 / -1; }                 /* specific, location, names: the full width, every layout */
   .pair { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: calc(12px * var(--u)); }
   .pair .both { grid-column: 1 / -1; }
-  /* on its side too, Take and Pos stretch across the screen (14 Oct 2026: "currently on landscape it's bunched to the left") */
-  .fields.landscape #w-pos, .fields.landscape #w-add { grid-column: 1 / -1; }   /* ADD follows: its words and box at the right edge under the + */
+  /* on its side too, Take and Pos stretch across the screen (14 Oct 2026: "currently on landscape it's bunched to the left") —
+     unless Pos shares its row (HDRI: Pos | Positions in folder; Ref: Pos | ADD, both filling the width, half each like Slate | Type on its side) */
+  .fields.landscape .pair.pos:not(.both):not(.withadd) #w-pos { grid-column: 1 / -1; }
+  .fields.landscape .pair.pos.both, .fields.landscape .pair.pos.withadd { display: grid; align-items: end; }
   .field label { font-size: calc(13px * var(--u)); color: var(--muted); padding-left: calc(2px * var(--u));
                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .field input, .field select { font: 600 max(16px, calc(17px * var(--u))) var(--font-ui); text-overflow: ellipsis; color: var(--ui-fg); background: var(--field);
@@ -261,8 +263,8 @@
           <button type="button" data-step="f-pos" data-d="1" aria-label="Position up">+</button></div></div>
       <div class="field" id="w-npos"><label for="f-npos">Positions in folder</label>
         <select id="f-npos"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option></select></div>
-      </div>
       <div class="field check" id="w-add"><label for="f-add">ADD (more ref, taken later)</label><input autocomplete="off" id="f-add" type="checkbox"></div>
+      </div>
       <!-- witcams: Focal | Date side by side, the take's − 1 + across the width under them (13 Oct 2026) -->
       <div class="pair" id="w-fd">
         <div class="field" id="w-focal"><label for="f-focal">Focal <span class="opt">(mm)</span></label>
@@ -366,7 +368,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     const k = cfgKey();
     if (k !== specKey) { if (specKey) { specs[specKey] = $("f-spec").value; save(); } $("f-spec").value = specs[k] || ""; specKey = k; }
     show("w-spec", spec); $("l-spec").textContent = specReq ? "Specific" : "Specific (optional)";
-    show("w-pos", pos); $("l-pos").textContent = posLabel; $("w-posrow").classList.toggle("both", pos && npos);
+    show("w-pos", pos); $("l-pos").textContent = posLabel; $("w-posrow").classList.toggle("both", pos && npos); $("w-posrow").classList.toggle("withadd", pos && add);
     show("w-npos", npos); show("w-add", add); show("w-focal", focal); show("w-take", take);
     show("w-date", take); show("w-fd", focal || take);                     // every witcam slate carries the date beside the focal (13 Oct 2026)
     if (take && !$("f-date").value) $("f-date").value = today();
@@ -873,7 +875,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-224348)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-225317)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
