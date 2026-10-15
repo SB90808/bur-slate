@@ -155,6 +155,11 @@
   .check input:checked { background: var(--go); border-color: var(--go); }
   .check input:checked::before { opacity: 1; }
   .check label { font-size: calc(15px * var(--u)); color: var(--ui-fg); white-space: normal; padding-left: 0; cursor: pointer; flex: 0 1 auto; text-align: right; }
+  /* recent focals: up to three chips under the Focal box, one tap to pick; the current one lit (15 Oct 2026) */
+  .chips { display: flex; gap: calc(6px * var(--u)); flex-wrap: wrap; }
+  .chips button { height: calc(34px * var(--u)); padding: 0 calc(14px * var(--u)); border-radius: calc(17px * var(--u)); font: 600 calc(14px * var(--u)) var(--font-ui);
+                  color: var(--ui-fg); background: var(--field); border: 0.5px solid var(--line); cursor: pointer; }
+  .chips button[aria-pressed="true"] { background: var(--go); border-color: var(--go); color: var(--on-go); }
   .note:empty, .fields.nonote .note { display: none; }   /* a short screen drops the help line before anything scrolls */
   .toast { --u: var(--tu); position: absolute; left: 50%; bottom: max(calc(20px * var(--u)), var(--sab)); transform: translateX(-50%); z-index: 5;
            display: flex; align-items: center; gap: calc(14px * var(--u)); padding: calc(10px * var(--u)) calc(12px * var(--u)) calc(10px * var(--u)) calc(16px * var(--u));
@@ -268,7 +273,8 @@
       <!-- witcams: Focal | Date side by side, the take's − 1 + across the width under them (13 Oct 2026) -->
       <div class="pair" id="w-fd">
         <div class="field" id="w-focal"><label for="f-focal">Focal <span class="opt">(mm)</span></label>
-          <input autocomplete="off" id="f-focal" type="text" inputmode="numeric" placeholder="50" enterkeyhint="done"></div>
+          <input autocomplete="off" id="f-focal" type="text" inputmode="numeric" placeholder="50" enterkeyhint="done">
+          <div class="chips" id="focal-chips" role="group" aria-label="Recent focals" hidden></div></div>
         <div class="field" id="w-date"><label for="f-date">Date <span class="opt">(yymmdd)</span></label>
           <input autocomplete="off" id="f-date" type="text" inputmode="numeric" maxlength="6" placeholder="261013" enterkeyhint="done"></div>
       </div>
@@ -318,6 +324,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   let mode = "slate", shown = null;          // shown: the line on screen (or "DO NOT USE")
   // each type keeps its own specific: VB, Photog, Textures… never share one (13 Oct 2026)
   let specs = {}, specKey = null;
+  let focals = {};                                                       // each witcam type keeps its own focal too (15 Oct 2026)
   const cfgKey = () => mode === "slate" ? "S:" + $("f-type").value : "A:" + $("f-cat").value + ":" + $("f-atype").value;
 
   // ---------- fill the lists ----------
@@ -366,7 +373,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       if (c === "PROP" && t !== "PLATE") specReq = false;
     }
     const k = cfgKey();
-    if (k !== specKey) { if (specKey) { specs[specKey] = $("f-spec").value; save(); } $("f-spec").value = specs[k] || ""; specKey = k; }
+    if (k !== specKey) {
+      if (specKey) { specs[specKey] = $("f-spec").value; focals[specKey] = $("f-focal").value; save(); }
+      $("f-spec").value = specs[k] || ""; $("f-focal").value = focals[k] || ""; specKey = k;
+    }
+    renderFocalChips();
     show("w-spec", spec); $("l-spec").textContent = specReq ? "Specific" : "Specific (optional)";
     show("w-pos", pos); $("l-pos").textContent = posLabel; $("w-posrow").classList.toggle("both", pos && npos); $("w-posrow").classList.toggle("withadd", pos && add);
     show("w-npos", npos); show("w-add", add); show("w-focal", focal); show("w-take", take);
@@ -539,8 +550,18 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   // ---------- location, prop and character: type anything; names are offered as you type (tap one to fill) ----------
   // offered = this production's list (if built in) + every name shown on a slate on this phone; x forgets a learned one
   const LEARN_KEY = "bur-slate-names";
-  let learned = { loc: [], prop: [], char: [], real: [] };
-  try { const l = JSON.parse(localStorage.getItem(LEARN_KEY) || "{}"); ["loc", "prop", "char", "real"].forEach(k => { if (Array.isArray(l[k])) learned[k] = l[k]; }); } catch (e) {}
+  let learned = { loc: [], prop: [], char: [], real: [], focal: [] };
+  try { const l = JSON.parse(localStorage.getItem(LEARN_KEY) || "{}"); ["loc", "prop", "char", "real", "focal"].forEach(k => { if (Array.isArray(l[k])) learned[k] = l[k]; }); } catch (e) {}
+  function renderFocalChips() {
+    const box = $("focal-chips"), now = ($("f-focal").value.match(/\d+/) || [""])[0], recent = learned.focal.slice(0, 3);
+    box.textContent = ""; box.hidden = !recent.length;
+    recent.forEach(f => { const b = document.createElement("button"); b.type = "button"; b.textContent = f; b.setAttribute("aria-pressed", String(f === now)); box.append(b); });
+  }
+  $("focal-chips").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    $("f-focal").value = b.textContent; renderFocalChips(); build(); save();
+  });
+  $("f-focal").addEventListener("input", renderFocalChips);
   const keepLearned = () => { try { localStorage.setItem(LEARN_KEY, JSON.stringify(learned)); } catch (e) {} };
   function learn(kind, name) {
     name = up(name); if (!name) return;
@@ -589,6 +610,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   suggest("char", "f-char", "char-sugg", CHARACTERS, () => !$("w-char").hidden, "New character — filed as typed.");
   suggest("real", "f-stunt", "stunt-sugg", [], () => !$("w-stunt").hidden, "");
   function learnFromForm() {
+    if (!$("w-focal").hidden) { const f = ($("f-focal").value.match(/\d+/) || [""])[0]; if (f) { learn("focal", f); learned.focal = learned.focal.slice(0, 3); keepLearned(); renderFocalChips(); } }   // Witness is Slate mode
     if (mode !== "asset") return;
     if (!$("w-loc").hidden) learn("loc", $("f-loc").value);
     if (!$("w-name").hidden) learn("prop", $("f-name").value);
@@ -750,8 +772,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   // ---------- Clear (13 Oct 2026): a fresh start — every typed box empty, takes / positions back to 1 ----------
   // The mode and the types picked stay; the names the phone has learned and light / dark stay. Undo for a few seconds.
   function snapshot() {
-    const s = { mode, add: $("f-add").checked, specs: Object.assign({}, specs), vals: {} };
-    if (specKey) s.specs[specKey] = $("f-spec").value;
+    const s = { mode, add: $("f-add").checked, specs: Object.assign({}, specs), focals: Object.assign({}, focals), vals: {} };
+    if (specKey) { s.specs[specKey] = $("f-spec").value; s.focals[specKey] = $("f-focal").value; }
     KEEP.concat(["f-date"]).forEach(id => { s.vals[id] = $(id).value; });
     return s;
   }
@@ -759,7 +781,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     mode = s.mode;
     $("f-cat").value = s.vals["f-cat"]; fillAssetTypes();
     KEEP.concat(["f-date"]).forEach(id => { if (s.vals[id] != null) $(id).value = s.vals[id]; });
-    $("f-add").checked = s.add; specs = s.specs; specKey = null;
+    $("f-add").checked = s.add; specs = s.specs; focals = s.focals || {}; specKey = null;
     refreshFields(); save();
   }
   let toastTimer = null, undoSnap = null;
@@ -768,7 +790,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     ["f-slate", "f-slate2", "f-spec", "f-loc", "f-char", "f-name", "f-stunt", "f-focal"].forEach(id => { $(id).value = ""; });
     ["f-pos", "f-take"].forEach(id => { $(id).value = "1"; });
     $("f-npos").value = "1"; $("f-add").checked = false; $("f-date").value = today();
-    specs = {};
+    specs = {}; focals = {};
     refreshFields(); save();
     $("toast").hidden = false; clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { $("toast").hidden = true; undoSnap = null; }, 6000);
@@ -854,8 +876,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   // ---------- remember the last slate (this phone only) ----------
   const KEEP = ["f-slate", "f-slate2", "f-type", "f-cat", "f-atype", "f-loc", "f-char", "f-name", "f-stunt", "f-pos", "f-npos", "f-focal", "f-take"];
   function save() {
-    if (specKey) specs[specKey] = $("f-spec").value;
-    try { const s = { mode, add: $("f-add").checked, specs }; KEEP.forEach(id => s[id] = $(id).value); localStorage.setItem("bur-slate-v2", JSON.stringify(s)); } catch (e) {}
+    if (specKey) { specs[specKey] = $("f-spec").value; focals[specKey] = $("f-focal").value; }
+    try { const s = { mode, add: $("f-add").checked, specs, focals }; KEEP.forEach(id => s[id] = $(id).value); localStorage.setItem("bur-slate-v2", JSON.stringify(s)); } catch (e) {}
   }
   function load() {
     let s = null; try { s = JSON.parse(localStorage.getItem("bur-slate-v2") || "null"); } catch (e) {}
@@ -865,6 +887,8 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     KEEP.forEach(id => { if (s[id] != null && s[id] !== "") $(id).value = s[id]; });
     specs = (s.specs && typeof s.specs === "object") ? s.specs : {};
     if (!s.specs && s["f-spec"]) specs[cfgKey()] = s["f-spec"];          // a specific saved before per-type memory
+    focals = (s.focals && typeof s.focals === "object") ? s.focals : {};
+    if (!s.focals && s["f-focal"]) focals[cfgKey()] = s["f-focal"];       // a focal saved before per-type memory
     $("f-add").checked = !!s.add;
     $("f-loc").value = words($("f-loc").value);
     $("f-char").value = s["f-char"] === "__other" ? (s["f-cname"] || "") : words($("f-char").value);   // saved before the character box could be typed in
@@ -875,7 +899,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261014-225317)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261015-095700)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>

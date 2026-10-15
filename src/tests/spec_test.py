@@ -214,6 +214,20 @@ with sync_playwright() as p:
     sug = pg.eval_on_selector_all("#stunt-sugg .pick", "bs => bs.map(b => b.textContent)")
     check("Real name remembered and offered as you type (no hint)", sug == ["JOHN SMITH"] and not pg.query_selector("#stunt-sugg .hint"), sug)
     pg.tap("#stunt-sugg .pick"); time.sleep(0.2); check("Tap a remembered real name fills it", pg.input_value("#f-stunt") == "JOHN SMITH")
+    # focal per type + recent-focal chips (Steve, 15 Oct 2026)
+    setv(pg, "f-focal", "85"); pg.tap("#show"); time.sleep(0.5); back(pg)                       # Facial at 85
+    pg.select_option("#f-cat", "ENV"); pg.select_option("#f-atype", "PLATE"); time.sleep(0.15); pf = pg.input_value("#f-focal")
+    setv(pg, "f-loc", "yard"); setv(pg, "f-spec", "gate"); setv(pg, "f-focal", "24"); pg.tap("#show"); time.sleep(0.5); back(pg)   # Plate at 24
+    pg.tap("#mode-slate"); pg.select_option("#f-type", "WITNESS"); time.sleep(0.15); wf = pg.input_value("#f-focal")
+    chips = pg.eval_on_selector_all("#focal-chips button", "bs => bs.map(b => b.textContent)")
+    pg.tap("#focal-chips button:nth-child(2)"); time.sleep(0.15); tapped = pg.input_value("#f-focal")
+    lit = pg.eval_on_selector_all("#focal-chips button", "bs => bs.map(b => b.getAttribute('aria-pressed'))")
+    pg.tap("#mode-asset"); pg.select_option("#f-cat", "CHAR"); pg.select_option("#f-atype", "FACIAL"); time.sleep(0.15); ff = pg.input_value("#f-focal")
+    check("Focal remembered per type: Plate keeps its 24 from earlier, Witness its 50, Facial its 85", pf == "24" and wf == "50" and ff == "85", [pf, wf, ff])
+    check("Recent focal chips: last three, newest first; tap fills and lights it", chips == ["24", "85", "50"] and tapped == "85" and lit == ["false", "true", "false"], [chips, tapped, lit])
+    pg.reload(); time.sleep(0.6); pg.tap("#mode-slate"); pg.select_option("#f-type", "WITNESS"); time.sleep(0.15)
+    check("Per-type focals and chips survive reload", pg.input_value("#f-focal") == "85" and pg.eval_on_selector_all("#focal-chips button", "bs => bs.length") == 3)
+    pg.tap("#mode-asset"); pg.select_option("#f-cat", "CHAR"); pg.select_option("#f-atype", "FACIAL"); setv(pg, "f-focal", ""); time.sleep(0.1)
     # long line wraps and shrinks to stay fully visible
     pg.select_option("#f-cat", "ENV"); pg.select_option("#f-atype", "PLATE"); setv(pg, "f-loc", "old station yard outside the main gate"); setv(pg, "f-spec", "guard running left to right")
     check("Long slate line fully visible in the top box", pg.eval_on_selector("#preview", "p => { const cs = getComputedStyle(p); return p.firstElementChild.offsetHeight <= p.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) + 1; }"))
