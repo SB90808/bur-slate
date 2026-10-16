@@ -1,6 +1,6 @@
 {
-  "name": "BUR Slate",
-  "short_name": "BUR Slate",
+  "name": "SetKit: Slate",
+  "short_name": "SetKit Slate",
   "description": "Slate and QR for on-set data wrangling.",
   "start_url": "./",
   "scope": "./",
