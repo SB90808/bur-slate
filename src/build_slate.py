@@ -45,9 +45,7 @@ head = '''<title>BUR Slate</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="BUR Slate">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">'''
+<meta name="apple-mobile-web-app-title" content="BUR Slate">'''   # theme-color is in the source: the page drives it (black while the slate shows)
 assert web.count("<title>BUR Slate</title>") == 1
 web = web.replace("<title>BUR Slate</title>", head)
 web = "<!doctype html>\n<html lang=\"en-GB\">\n<head>\n<meta charset=\"utf-8\">\n" + web

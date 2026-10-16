@@ -3,6 +3,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" id="theme-color" content="#000000">
 <style>
   /* Layout: two screens. The form (Slate | Asset, then the fields for the chosen type) builds the slate line;
      Show swaps to the slate: text left / QR right (text only for HDRI and Insta360). Double-tap the QR to edit.
@@ -167,12 +168,16 @@
   .note { grid-column: 1 / -1; margin: 0; font-size: calc(13px * var(--u)); line-height: 1.45; color: var(--muted); }
 
   /* ---------- the slate ---------- */
-  .stage { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; background: var(--slate-bg);
+  /* The band inside the safe insets (iPhone Dynamic Island / notch / home bar) is ALWAYS black, whatever the theme: on a white
+     slate the island showed as a black pill beside the text and the kit read it as a "1" in front of the slate (Steve, 16 Oct 2026,
+     81AK -> 181AK on an Insta360). Only the two halves carry the slate colour. */
+  .stage { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; background: #000000;
            -webkit-user-select: none; user-select: none; touch-action: none;   /* swipes and taps are the page's own, never a scroll or zoom */
            padding: var(--sat) var(--sar) var(--sab) var(--sal); }   /* never under the Dynamic Island / notch / home bar */
   .stage.portrait { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
   .stage.solo { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-  .half { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .half { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+          background: var(--slate-bg); }
   .text { font-family: var(--font-slate); font-weight: 700; color: var(--slate-fg); text-align: center; line-height: 1.12;
           white-space: pre; letter-spacing: -0.005em; }
   .half.words { flex-direction: column; }      /* the text half stacks the line and, under its last line, the date stamp */
@@ -515,7 +520,7 @@
     shown = obj;
     if (obj.line !== "DO NOT USE") learnFromForm();
     if (document.activeElement) document.activeElement.blur();          // the keyboard goes away
-    $("editor").hidden = true; $("stage").hidden = false;
+    $("editor").hidden = true; $("stage").hidden = false; themeColor();
     // in a browser tab (not the home-screen app) the slate goes full screen where the phone allows it (Android; not iPhone Safari)
     const standalone = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone;
     if (!standalone && document.fullscreenEnabled && !document.fullscreenElement && document.documentElement.requestFullscreen)
@@ -526,7 +531,7 @@
     const ed = $("editor");
     ed.inert = true; ed.classList.add("settling");                      // swallow the rest of the double-tap
     if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
-    $("stage").hidden = true; ed.hidden = false; build(); fit();
+    $("stage").hidden = true; ed.hidden = false; themeColor(); build(); fit();
     setTimeout(() => { ed.inert = false; ed.classList.remove("settling"); if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); }, 500);
   }
 
@@ -744,11 +749,15 @@
   const systemTheme = () => (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
   const themeNow = () => document.documentElement.dataset.theme || systemTheme();
   function labelTheme() { $("theme").setAttribute("aria-label", themeNow() === "light" ? "Switch to dark mode" : "Switch to light mode"); }
+  // the phone's own bar (status bar in the installed app, Safari's chrome in a tab) follows the form's theme, but is BLACK while the
+  // slate shows — so the Dynamic Island / punch-hole camera sits in a black bar, never as a black blob on a white slate (16 Oct 2026)
+  function themeColor() { const m = $("theme-color"); if (m) m.content = (!$("stage").hidden || themeNow() === "dark") ? "#000000" : "#f5f5f7"; }
+  if (window.matchMedia) matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => themeColor());
   try { const t = localStorage.getItem("bur-slate-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
-  labelTheme();
+  labelTheme(); themeColor();
   $("theme").addEventListener("click", () => {
     const t = themeNow() === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = t; labelTheme();
+    document.documentElement.dataset.theme = t; labelTheme(); themeColor();
     try { localStorage.setItem("bur-slate-theme", t); } catch (e) {}
   });
 

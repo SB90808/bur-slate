@@ -236,7 +236,8 @@ with sync_playwright() as p:
     check("Light mode Graphite colours", pg.eval_on_selector("#editor", "e => getComputedStyle(e).backgroundColor") == "rgb(245, 245, 247)"
           and pg.eval_on_selector("#show", "e => getComputedStyle(e).backgroundColor") == "rgb(29, 29, 31)")
     pg.tap("#show"); time.sleep(0.6)
-    check("Light mode slate: black on white", pg.eval_on_selector("#stage", "e => getComputedStyle(e).backgroundColor") == "rgb(255, 255, 255)"
+    check("Light mode slate: black on white (the safe-area band stays black)", pg.eval_on_selector("#stage", "e => getComputedStyle(e).backgroundColor") == "rgb(0, 0, 0)"
+          and pg.eval_on_selector("#qrHalf", "e => getComputedStyle(e).backgroundColor") == "rgb(255, 255, 255)"
           and pg.eval_on_selector("#slateText", "e => getComputedStyle(e).color") == "rgb(0, 0, 0)")
     check("QR reads on the white slate", qr(pg, "white").startswith("BUR:ENV / OLD STATION YARD OUTSIDE"))
     back(pg); pg.reload(); time.sleep(0.6)
