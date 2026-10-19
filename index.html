@@ -350,7 +350,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     let spec = false, specLabel = "Specific", specReq = false, pos = false, posLabel = "Pos", npos = false, add = false, focal = false, take = false, note = "";
     if (mode === "slate") {
       const t = $("f-type").value;
-      show("w-slate2", t === "INSTA" || t === "REF");     // HDRI, Witness, VB, VB PMP, Photog, Textures, Gsplat are slate-specific only (13 Oct 2026)
+      show("w-slate2", t === "INSTA" || t === "REF" || t === "HDRI");     // + Slates back on HDRI (19 Oct 2026); Witness, VB, VB PMP, Photog, Textures, Gsplat stay slate-specific (13 Oct)
       if (t === "HDRI") { spec = true; pos = true; npos = true; note = "HDRI: specific only if the spot needs noting (a CG character's mark). Shown as text, no QR — the QR does not survive the fisheye."; }
       else if (t === "INSTA") { note = "Insta360: the slate number only — positions are numbered by capture order. Shown as text, no QR."; }
       else if (t === "REF") { spec = true; pos = true; add = true; note = "Pos 1 is plain ref. A specific gets its own folder beside stills (reflection ref)."; }
@@ -906,7 +906,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261016-113245)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261019-130253)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>

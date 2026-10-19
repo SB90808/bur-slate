@@ -1,7 +1,7 @@
-// SetKit: Slate service worker — release 20261016-113245
+// SetKit: Slate service worker — release 20261019-130253
 // Opens from the phone's copy straight away (works with no signal) and fetches any new release in the background;
 // a new release shows the next time the app is opened.
-const CACHE = "bur-slate-20261016-113245";
+const CACHE = "bur-slate-20261019-130253";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
