@@ -315,7 +315,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   const ASSET_TYPES = {
     ENV:   [PHOTOG, TEXTURES, GSPLAT, ["PLATE", "Plate (witcam)"]],
     PROP:  [PHOTOG, TEXTURES],
-    CHAR:  [PHOTOG, ["WSCAN", "Wrangler scan"], ["FACIAL", "Facial (witcam)"]],
+    CHAR:  [PHOTOG, ["DAILYREF", "DailyRef", "Daily set ref"], ["WSCAN", "Wrangler scan"], ["FACIAL", "Facial (witcam)"]],
     VEH:   [PHOTOG, TEXTURES],
     TILES: [PHOTOG, TEXTURES],
   };
@@ -372,6 +372,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       if (t === "PLATE") { spec = true; specReq = true; focal = true; take = true; note = "ENV plate: a background plate on a witcam, filed in the day's Assets under the location."; }
       else if (t === "FACIAL") { focal = true; take = true; note = "Facial capture: character, real name, date, take. The camera is the folder."; }
       else if (t === "WSCAN") { note = "Wrangler scan: the character's name is the asset."; }
+      else if (t === "DAILYREF") { spec = true; note = "Daily set ref: filed under the character in the day's Assets. A specific only when there is a second one of the same character today."; }   // 19 Oct 2026
       else { spec = true; specReq = c !== "PROP" && t !== "WSCAN"; pos = t === "GSPLAT"; }
       if (c === "PROP" && t !== "PLATE") specReq = false;
     }
@@ -430,7 +431,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       } else {
         const name = c === "CHAR" ? chr : c === "PROP" ? up($("f-name").value) : loc;
         if (!name) missing = c === "CHAR" ? "pick or type the character" : c === "PROP" ? "type the prop name" : "pick or type the location";
-        else if (!spec && t !== "WSCAN" && c !== "PROP") missing = "type the specific";
+        else if (!spec && t !== "WSCAN" && t !== "DAILYREF" && c !== "PROP") missing = "type the specific";
         parts = [c, name, t];
         const tail = t === "GSPLAT" ? `${spec ? spec + " " : ""}POS ${pos}` : spec;
         if (tail) parts.push(tail);
@@ -906,7 +907,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 </script>
 
 <script>
-  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261019-130253)
+  // installable + works with no signal: the service worker keeps a copy on the phone (release 20261019-132326)
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
