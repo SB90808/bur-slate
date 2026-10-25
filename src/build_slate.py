@@ -1,4 +1,4 @@
-"""Build SetKit: Slate (was BUR Slate) from src/bur_slate_src.html.
+"""Build BUR Slate (the BUR wranglers' copy; the product line SetKit: Slate lives in SB90808/setkit-slate) from src/bur_slate_src.html.
 
   python3 src/build_slate.py [--lists <asset_history.json>] [--artifact <out.html>]
 
@@ -39,15 +39,15 @@ else:
 # 2. web copy: no production lists, names learned per phone, installable + offline
 release = time.strftime("%Y%m%d-%H%M%S")
 web = fill([], [], []).replace("Steve, ", "")
-head = '''<title>SetKit: Slate</title>
+head = '''<title>BUR Slate</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="description" content="Slate and QR for on-set data wrangling.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-title" content="SetKit Slate">'''   # theme-color is in the source: the page drives it (black while the slate shows)
-assert web.count("<title>SetKit: Slate</title>") == 1
-web = web.replace("<title>SetKit: Slate</title>", head)
+<meta name="apple-mobile-web-app-title" content="BUR Slate">'''   # theme-color is in the source: the page drives it (black while the slate shows)
+assert web.count("<title>BUR Slate</title>") == 1
+web = web.replace("<title>BUR Slate</title>", head)
 web = "<!doctype html>\n<html lang=\"en-GB\">\n<head>\n<meta charset=\"utf-8\">\n" + web
 web = web.replace("</style>\n", "</style>\n</head>\n<body>\n", 1)
 web += f'''
@@ -60,12 +60,12 @@ web += f'''
 '''
 (REPO / "index.html").write_text(web, encoding="utf-8")
 (REPO / "manifest.webmanifest").write_text(json.dumps({
-    "name": "SetKit: Slate", "short_name": "SetKit Slate", "description": "Slate and QR for on-set data wrangling.",
+    "name": "BUR Slate", "short_name": "BUR Slate", "description": "Slate and QR for on-set data wrangling.",
     "start_url": "./", "scope": "./", "display": "standalone", "orientation": "any",
     "background_color": "#000000", "theme_color": "#000000",
     "icons": [{"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
               {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}]}, indent=2), encoding="utf-8")
-(REPO / "sw.js").write_text(f'''// SetKit: Slate service worker — release {release}
+(REPO / "sw.js").write_text(f'''// BUR Slate service worker — release {release}
 // Opens from the phone's copy straight away (works with no signal) and fetches any new release in the background;
 // a new release shows the next time the app is opened.
 const CACHE = "bur-slate-{release}";
